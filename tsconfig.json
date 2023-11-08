@@ -9,12 +9,16 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "rootDir": "src",
+    "baseUrl": "src",
     "outDir": "build",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitAny": true,
     "removeComments": true,
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
   "include": ["index.d.ts", "src/**/*.ts"],
-  "exclude": ["build", "node_modules"],
+  "exclude": ["build", "node_modules"]
 }

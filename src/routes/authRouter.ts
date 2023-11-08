@@ -1,8 +1,9 @@
 import express from 'express';
 import { confirmEmail, getMe, invite, login, singup, update } from '../controllers/auth';
-import auth from '../middlewares/auth';
-import validate from '../middlewares/validation';
-import { authSchema } from '../schema';
+import validate from '@/middlewares/validation';
+import { authSchema } from '@/schema';
+import auth from '@/middlewares/auth';
+
 
 const authRouter = express.Router();
 

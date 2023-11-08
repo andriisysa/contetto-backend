@@ -2,6 +2,9 @@ import jwt from 'jsonwebtoken';
 
 //life is for 2 hours for the token then refresh
 export function generateTokens(user: any): string | null {
+  if (user.iat) delete user.iat;
+  if (user.exp) delete user.exp;
+
   const secret: string | undefined = process.env.JWT_SECRET;
 
   if (secret) {

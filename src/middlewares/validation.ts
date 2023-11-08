@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { validationResult, type ValidationChain, ValidationError as expressValidationError } from 'express-validator';
-import { ErrorBase, ValidationError } from '../types/error.types';
+import { ErrorBase, ValidationError } from '@/types/error.types';
 
 const error = (err: Error, res: Response) => {
   if (err instanceof ErrorBase) {

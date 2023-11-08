@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { IUser } from '../types/user.types';
-import { generateTokens, verifyToken } from '../utils/jwt';
+import { IUser } from '@/types/user.types';
+import { generateTokens, verifyToken } from '@/utils/jwt';
 
 export const setResponseHeader = async (res: Response, user: IUser) => {
   const token = await generateTokens(user);

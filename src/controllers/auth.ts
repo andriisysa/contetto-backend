@@ -1,12 +1,14 @@
 import type { Request, Response } from 'express';
-import { db } from '../database';
-import { compareHash, encrypt } from '../utils/hash';
-import { setResponseHeader } from '../middlewares/auth';
-import { IUser } from '../types/user.types';
 import { randomInt } from 'crypto';
 import { WithoutId } from 'mongodb';
-import { getNow } from '../utils';
-import { sendEmail } from '../utils/email';
+
+import { db } from '@/database';
+import { compareHash, encrypt } from '@/utils/hash';
+import { setResponseHeader } from '@/middlewares/auth';
+import { IUser } from '@/types/user.types';
+
+import { getNow } from '@/utils';
+import { sendEmail } from '@/utils/email';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 
