@@ -6,4 +6,5 @@ export interface IContact {
   name: string;
   orgId: ObjectId;
   agentProfileId: ObjectId;
+  deleted: boolean;
 }

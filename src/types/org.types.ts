@@ -18,4 +18,5 @@ export interface IOrg {
   secondaryColor?: string;
   logoUrl?: string;
   mlsFeeds?: IMLSFeed[];
+  deleted: boolean;
 }

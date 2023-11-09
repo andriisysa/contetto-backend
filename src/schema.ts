@@ -16,3 +16,9 @@ export const authSchema = {
     body('password').isString().withMessage('Enter the password'),
   ],
 };
+
+export const orgSchema = {
+	create: [
+		body('name').isString().withMessage('Org name is required!'),
+	]
+}

@@ -20,9 +20,14 @@ export const singup = async (req: Request, res: Response) => {
     const verificationCode = randomInt(100000, 999999);
 
     await usersCol.deleteMany({ username, verified: false });
-    const user = await usersCol.findOne({ username });
+    let user = await usersCol.findOne({ username });
     if (user) {
       return res.status(400).json({ msg: 'Username is already taken' });
+    }
+
+    user = await usersCol.findOne({ 'emails.email': email });
+    if (user) {
+      return res.status(400).json({ msg: 'Email is already taken' });
     }
 
     await sendEmail(
@@ -45,6 +50,7 @@ export const singup = async (req: Request, res: Response) => {
       verified: false,
       createdAt: getNow(),
       updatedAt: getNow(),
+      deleted: false,
     };
 
     await usersCol.insertOne(userData);
@@ -77,8 +83,8 @@ export const confirmEmail = async (req: Request, res: Response) => {
 
     return res.json({ msg: 'You are verified now!' });
   } catch (error: any) {
-    console.log('signup error ===>', error);
-    return res.status(400).json({ msg: `sign up failed: ${error.message}` });
+    console.log('confirmEmail error ===>', error);
+    return res.status(400).json({ msg: `Email confirmation failed: ${error.message}` });
   }
 };
 
@@ -94,17 +100,6 @@ export const login = async (req: Request, res: Response) => {
 
       return res.status(500).json({ msg: 'Server error' });
     }
-
-    return res.status(404).json({ msg: 'user not found' });
-  } catch (error) {
-    console.log('login ===>', error);
-    return res.status(400).json({ msg: 'login failed' });
-  }
-};
-
-export const invite = async (req: Request, res: Response) => {
-  try {
-    const { username, password } = req.body;
 
     return res.status(404).json({ msg: 'user not found' });
   } catch (error) {
