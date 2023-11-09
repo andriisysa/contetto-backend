@@ -59,7 +59,7 @@ export const singup = async (req: Request, res: Response) => {
     return res.json({ msg: 'sign up success' });
   } catch (error: any) {
     console.log('signup error ===>', error);
-    return res.status(400).json({ msg: `sign up failed: ${error.message}` });
+    return res.status(500).json({ msg: `sign up failed: ${error.message}` });
   }
 };
 
@@ -88,7 +88,7 @@ export const confirmEmail = async (req: Request, res: Response) => {
     return res.json({ msg: 'You are verified now!' });
   } catch (error: any) {
     console.log('confirmEmail error ===>', error);
-    return res.status(400).json({ msg: `Email confirmation failed: ${error.message}` });
+    return res.status(500).json({ msg: `Email confirmation failed: ${error.message}` });
   }
 };
 
@@ -110,7 +110,7 @@ export const login = async (req: Request, res: Response) => {
     return res.status(404).json({ msg: 'user not found' });
   } catch (error) {
     console.log('login ===>', error);
-    return res.status(400).json({ msg: 'login failed' });
+    return res.status(500).json({ msg: 'login failed' });
   }
 };
 
@@ -141,7 +141,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
     return res.json({ msg: 'Sent email with verification code!' });
   } catch (error: any) {
     console.log('forgot password error ===>', error);
-    return res.status(400).json({ msg: `Failed: ${error.message}` });
+    return res.status(500).json({ msg: `Failed: ${error.message}` });
   }
 };
 
@@ -158,7 +158,7 @@ export const forgotPasswordConfirm = async (req: Request, res: Response) => {
     // todo: check expiration
 
     if (user.verificationCode !== verificationCode) {
-      return res.status(400).json({ msg: 'Verification incorrect!' });
+      return res.status(400).json({ msg: 'Verification code incorrect!' });
     }
 
     password = await encrypt(password);
@@ -168,7 +168,7 @@ export const forgotPasswordConfirm = async (req: Request, res: Response) => {
     return res.json({ msg: 'Password updated' });
   } catch (error: any) {
     console.log('forgotPasswordConfirm error ===>', error);
-    return res.status(400).json({ msg: `Failed: ${error.message}` });
+    return res.status(500).json({ msg: `Failed: ${error.message}` });
   }
 };
 
@@ -189,6 +189,6 @@ export const resetPassword = async (req: Request, res: Response) => {
     return res.status(400).json({ msg: 'Password incorrect!' });
   } catch (error: any) {
     console.log('resetPassword error ===>', error);
-    return res.status(400).json({ msg: `Failed: ${error.message}` });
+    return res.status(500).json({ msg: `Failed: ${error.message}` });
   }
 };

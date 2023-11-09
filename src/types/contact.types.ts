@@ -7,4 +7,5 @@ export interface IContact {
   orgId: ObjectId;
   agentProfileId: ObjectId;
   deleted: boolean;
+  deletedAt?: number;
 }

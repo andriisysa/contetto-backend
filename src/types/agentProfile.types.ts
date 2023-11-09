@@ -24,4 +24,7 @@ export interface IAgentProfile {
   description?: string;
   role: AgentRole;
   deleted: boolean;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt?: number;
 }

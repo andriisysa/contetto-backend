@@ -10,6 +10,6 @@ router
   .get('/health', (_, res) => res.status(200).send('OK'))
 
   .use('/auth', authRouter)
-  .use('/org', auth, orgsRouter);
+  .use('/orgs', auth, orgsRouter);
 
 export default router;

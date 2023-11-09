@@ -19,9 +19,16 @@ export const authSchema = {
   forgotPasswordConfirm: [
     body('email').isString().withMessage('Enter the eamil'),
     body('verificationCode').isString().withMessage('Enter the verification code'),
+    body('password').isString().withMessage('Enter the password'),
   ],
 };
 
 export const orgSchema = {
   create: [body('name').isString().withMessage('Org name is required!')],
+  invite: [
+    body('email').isString().withMessage('Enter the eamil'),
+    body('role').isString().withMessage('Enter the role'),
+  ],
+  acceptInvite: [body('code').isString().withMessage('Enter the code')],
+  removeMember: [body('username').isString().withMessage('Enter the member username')],
 };

@@ -20,8 +20,8 @@ authRouter
   .post('/confirm-email', validate(authSchema.confirmEmail), confirmEmail)
   // .post('/update', update)
   .get('/me', auth, getMe)
-  .post('/forgot-password', forgotPassword)
-  .post('/forgot-password-confirm', forgotPasswordConfirm)
+  .post('/forgot-password', validate(authSchema.forgotPassword), forgotPassword)
+  .post('/forgot-password-confirm', validate(authSchema.forgotPasswordConfirm), forgotPasswordConfirm)
   .post('/reset-password', auth, resetPassword);
 
 export default authRouter;

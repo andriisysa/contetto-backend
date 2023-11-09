@@ -28,13 +28,6 @@ const orgRoleAuth = (role: AgentRole) => async (req: Request, res: Response, nex
           from: 'orgs',
           localField: 'orgId',
           foreignField: '_id',
-          pipeline: [
-            {
-              $match: {
-                deleted: false,
-              },
-            },
-          ],
           as: 'org',
         },
       },
@@ -45,6 +38,7 @@ const orgRoleAuth = (role: AgentRole) => async (req: Request, res: Response, nex
       },
     ])
     .toArray();
+
   if (agentProfiles.length === 0) {
     return res.status(404).json({ msg: 'You are not an agent in this organization' });
   }

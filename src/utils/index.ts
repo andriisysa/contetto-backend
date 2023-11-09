@@ -1,4 +1,4 @@
-import { randomInt } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 
 export const delay = async (seconds: number) =>
   new Promise((resolve) => {
@@ -12,4 +12,8 @@ export const getNow = () => {
 export const getRandomDigits = (digits: number) => {
   if (!digits) return '';
   return String(randomInt(Math.pow(10, digits - 1), Math.pow(10, digits) - 1));
+};
+
+export const getRandomString = (size: number) => {
+  return randomBytes(size).toString('hex');
 };

@@ -1,8 +1,9 @@
 import { ObjectId } from 'mongodb';
+import { AgentRole } from './agentProfile.types';
 
 export enum InviteType {
   org = 'org',
-  agent = 'agent',
+  contact = 'contact',
 }
 
 export interface IInvite {
@@ -10,8 +11,10 @@ export interface IInvite {
   code: string;
   bindType: InviteType;
   bindId: ObjectId;
+  orgId: ObjectId;
   used: boolean;
-  usedBy: string; // username
+  usedBy?: string; // username
   createdAt: number;
-  usedAt: number;
+  usedAt?: number;
+  role?: AgentRole;
 }

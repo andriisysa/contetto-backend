@@ -19,4 +19,5 @@ export interface IOrg {
   logoUrl?: string;
   mlsFeeds?: IMLSFeed[];
   deleted: boolean;
+  deletedAt?: number;
 }
