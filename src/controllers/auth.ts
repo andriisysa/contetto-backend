@@ -7,7 +7,7 @@ import { compareHash, encrypt } from '@/utils/hash';
 import { setResponseHeader } from '@/middlewares/auth';
 import { IUser } from '@/types/user.types';
 
-import { getNow } from '@/utils';
+import { getNow, getRandomDigits } from '@/utils';
 import { sendEmail } from '@/utils/email';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
@@ -15,9 +15,10 @@ const usersCol = db.collection<WithoutId<IUser>>('users');
 export const singup = async (req: Request, res: Response) => {
   try {
     let { username, email, password } = req.body;
-    username = String(username).toLowerCase();
+    username = String(username).toLowerCase().trim();
+    email = String(email).trim();
     password = await encrypt(password);
-    const verificationCode = randomInt(100000, 999999);
+    const verificationCode = getRandomDigits(4);
 
     await usersCol.deleteMany({ username, verified: false });
     let user = await usersCol.findOne({ username });
@@ -65,12 +66,15 @@ export const singup = async (req: Request, res: Response) => {
 export const confirmEmail = async (req: Request, res: Response) => {
   try {
     let { username, email, verificationCode } = req.body;
-    username = String(username).toLowerCase();
+    username = String(username).toLowerCase().trim();
+    email = String(email).trim();
 
     const user = await usersCol.findOne<IUser>({ username });
     if (!user) {
       return res.status(404).json({ msg: 'User does not exist' });
     }
+
+    // todo: check expiration
 
     if (user.verificationCode !== verificationCode) {
       return res.status(400).json({ msg: 'Verification code is not correct' });
@@ -90,7 +94,9 @@ export const confirmEmail = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { username, password } = req.body;
+    let { username, password } = req.body;
+    username = String(username).toLowerCase().trim();
+
     const user = await usersCol.findOne({ username, verified: true });
 
     if (user && (await compareHash(password, user.password))) {
@@ -108,17 +114,81 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const update = async (req: Request, res: Response) => {
-  try {
-    let { username, password } = req.body;
+export const getMe = async (req: Request, res: Response) => {
+  return res.json(req.user);
+};
 
-    return res.json({ msg: 'sign up success' });
+export const forgotPassword = async (req: Request, res: Response) => {
+  try {
+    let { email } = req.body;
+    email = String(email).trim();
+
+    const user = await usersCol.findOne({ 'emails.email': email });
+    if (!user) {
+      return res.status(404).json({ msg: 'User doesn not exist' });
+    }
+
+    const verificationCode = getRandomDigits(4);
+
+    await sendEmail(
+      email,
+      'Confirm email',
+      `Your verification code is ${verificationCode}. It will be expired in 1 hour`
+    );
+
+    await usersCol.updateOne({ 'emails.email': email }, { $set: { verificationCode, updatedAt: getNow() } });
+
+    return res.json({ msg: 'Sent email with verification code!' });
   } catch (error: any) {
-    console.log('signup error ===>', error);
-    return res.status(400).json({ msg: `sign up failed: ${error.message}` });
+    console.log('forgot password error ===>', error);
+    return res.status(400).json({ msg: `Failed: ${error.message}` });
   }
 };
 
-export const getMe = async (req: Request, res: Response) => {
-  return res.json(req.user);
+export const forgotPasswordConfirm = async (req: Request, res: Response) => {
+  try {
+    let { email, verificationCode, password } = req.body;
+    email = String(email).trim();
+
+    const user = await usersCol.findOne({ 'emails.email': email });
+    if (!user) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    // todo: check expiration
+
+    if (user.verificationCode !== verificationCode) {
+      return res.status(400).json({ msg: 'Verification incorrect!' });
+    }
+
+    password = await encrypt(password);
+
+    await usersCol.updateOne({ 'emails.email': email }, { $set: { password } });
+
+    return res.json({ msg: 'Password updated' });
+  } catch (error: any) {
+    console.log('forgotPasswordConfirm error ===>', error);
+    return res.status(400).json({ msg: `Failed: ${error.message}` });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+
+    const { oldPassword, newPassword } = req.body;
+
+    if (await compareHash(oldPassword, user.password)) {
+      const password = await encrypt(newPassword);
+
+      await usersCol.updateOne({ _id: user._id }, { $set: { password: String(password) } });
+
+      return res.json({ msg: 'Password updated' });
+    }
+
+    return res.status(400).json({ msg: 'Password incorrect!' });
+  } catch (error: any) {
+    console.log('resetPassword error ===>', error);
+    return res.status(400).json({ msg: `Failed: ${error.message}` });
+  }
 };

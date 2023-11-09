@@ -18,7 +18,7 @@ export interface IUser {
   password: string;
   emails: IEmail[];
   phones?: IPhone[];
-  verificationCode: number;
+  verificationCode: string;
   verified: boolean;
   createdAt: number;
   updatedAt: number;
