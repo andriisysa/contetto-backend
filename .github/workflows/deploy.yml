@@ -1,0 +1,52 @@
+name: Deploy backend service
+on:
+  push:
+    branches: [main]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout backend
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref_name }}
+          path: '.'
+
+      - name: Checkout Terraform
+        uses: actions/checkout@v3
+        with:
+          repository: 'Real-Estate-Search-AI/terraform-ecs'
+          token: ${{ secrets.GH_ACCESS_TOKEN }}
+          path: 'terraform'
+
+      - name: Install Terraform
+        run: |
+          wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg  
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt update && sudo apt install terraform
+
+      - name: Build and Deploy
+        run: |
+          echo "${ENV_FILE}" > .env
+          echo "${TF_VARS}" > ./terraform/terraform.tfvars
+
+          chmod +x ./terraform/build_image.sh
+          chmod +x ./terraform/deploy_infra.sh
+          ./terraform/build_image.sh
+          ./terraform/deploy_infra.sh
+        env:
+          CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+          APP_NAME: ${{ vars.APP_NAME }}
+          SERVICE_NAME: ${{ vars.SERVICE_NAME }}
+          TF_VARS: ${{ vars.TF_VARS }}
+          DO_DESTROY: ${{ vars.DO_DESTROY }}
+
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_BUCKET_REGION: ${{ vars.AWS_BUCKET_REGION }}
+          AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+          BUCKET_NAME: ${{ vars.BUCKET_NAME }}
+
+          ENV_FILE: ${{ secrets.ENV }}
