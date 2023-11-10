@@ -16,15 +16,25 @@ const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles'
 const invitesCol = db.collection<WithoutId<IInvite>>('invites');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 
+export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
+  const newOrg = await orgsCol.insertOne(orgData);
+  await agentProfilesCol.insertOne({
+    orgId: newOrg.insertedId,
+    username: user.username,
+    email: String(user.emails.find((email) => email.primary)?.email),
+    phone: '',
+    description: `Owner of ${orgData.name}`,
+    role: AgentRole.owner,
+    deleted: false,
+    createdAt: getNow(),
+    updatedAt: getNow(),
+  });
+};
+
 export const create = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
     const { name, primaryColor, secondaryColor, logoUrl, mlsFeeds = [] } = req.body;
-
-    const org = await orgsCol.findOne({ name, owner: user.username });
-    if (org) {
-      return res.status(400).json({ msg: 'Organization name already exists' });
-    }
 
     const orgData: WithoutId<IOrg> = {
       name,
@@ -36,18 +46,7 @@ export const create = async (req: Request, res: Response) => {
       deleted: false,
     };
 
-    const newOrg = await orgsCol.insertOne(orgData);
-    await agentProfilesCol.insertOne({
-      orgId: newOrg.insertedId,
-      username: user.username,
-      email: String(user.emails.find((email) => email.primary)?.email),
-      phone: '',
-      description: `Owner of ${name}`,
-      role: AgentRole.owner,
-      deleted: false,
-      createdAt: getNow(),
-      updatedAt: getNow(),
-    });
+    await createOrg(user, orgData);
 
     return res.json({ msg: 'Organization is created!' });
   } catch (error) {
@@ -150,10 +149,48 @@ export const inviteAgent = async (req: Request, res: Response) => {
       code,
       bindType: InviteType.org,
       bindId: agentProfile._id,
+      invitor: user.username,
       orgId: agentProfile.orgId,
       used: false,
       createdAt: getNow(),
       role,
+    });
+
+    return res.json({ msg: 'sent invitation' });
+  } catch (error) {
+    console.log('org invite ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const inviteContact = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+    const agentProfile = req.agentProfile as IAgentProfile;
+
+    const { email } = req.body;
+
+    const code = getRandomString(10);
+    await sendEmail(
+      email,
+      'Confirm email',
+      undefined,
+      `
+        <p>You are invited to ${agentProfile.org?.name} by ${user.username}. Here's the
+        <a href="https://ava.com/orgs/${agentProfile.orgId}/invites?code=${code}" target="_blank">link</a>
+        It will be expired in 2 hours.
+        </p>
+      `
+    );
+
+    await invitesCol.insertOne({
+      code,
+      bindType: InviteType.contact,
+      bindId: agentProfile._id,
+      invitor: user.username,
+      orgId: agentProfile.orgId,
+      used: false,
+      createdAt: getNow(),
     });
 
     return res.json({ msg: 'sent invitation' });
@@ -171,7 +208,6 @@ export const acceptInvite = async (req: Request, res: Response) => {
 
     const invite = await invitesCol.findOne({
       orgId: new ObjectId(orgId),
-      bindType: InviteType.org,
       code,
       used: false,
     });
@@ -184,17 +220,31 @@ export const acceptInvite = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'No organization found' });
     }
 
-    await agentProfilesCol.insertOne({
-      username: user.username,
-      orgId: org._id,
-      email: user.emails[0].email,
-      phone: '',
-      description: '',
-      role: invite.role as AgentRole,
-      deleted: false,
-      createdAt: getNow(),
-      updatedAt: getNow(),
-    });
+    if (invite.bindType === InviteType.org) {
+      await agentProfilesCol.insertOne({
+        username: user.username,
+        orgId: org._id,
+        email: user.emails[0].email,
+        phone: '',
+        description: '',
+        invitor: invite.invitor,
+        role: invite.role as AgentRole,
+        deleted: false,
+        createdAt: getNow(),
+        updatedAt: getNow(),
+      });
+    } else if (invite.bindType === InviteType.contact) {
+      await contactsCol.insertOne({
+        username: user.username,
+        email: user.emails[0].email,
+        orgId: org._id,
+        agentProfileId: invite.bindId,
+        invitor: invite.invitor,
+        createdAt: getNow(),
+        updatedAt: getNow(),
+        deleted: false,
+      });
+    }
 
     await invitesCol.updateOne(
       { _id: invite._id },
@@ -241,9 +291,44 @@ export const getMyOrgs = async (req: Request, res: Response) => {
       ])
       .toArray();
 
-    const orgs = agentProfiles.map((profile) => ({ ...profile.org, role: profile.role }));
+    const contacts = await contactsCol
+      .aggregate<IContact>([
+        {
+          $match: {
+            username: user.username,
+            deleted: false,
+          },
+        },
+        {
+          $lookup: {
+            from: 'orgs',
+            localField: 'orgId',
+            foreignField: '_id',
+            as: 'org',
+          },
+        },
+        {
+          $lookup: {
+            from: 'agentProfiles',
+            localField: 'agentProfileId',
+            foreignField: '_id',
+            as: 'agent',
+          },
+        },
+        {
+          $unwind: {
+            path: '$org',
+          },
+        },
+        {
+          $unwind: {
+            path: '$agent',
+          },
+        },
+      ])
+      .toArray();
 
-    return res.json(orgs);
+    return res.json({ agentProfiles, contacts });
   } catch (error) {
     console.log('getMyOrgs ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -262,7 +347,6 @@ export const getOrgMembers = async (req: Request, res: Response) => {
   }
 };
 
-// Todo
 export const removeMember = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile as IAgentProfile;

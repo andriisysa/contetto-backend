@@ -9,6 +9,8 @@ import { IUser } from '@/types/user.types';
 
 import { getNow, getRandomDigits } from '@/utils';
 import { sendEmail } from '@/utils/email';
+import { createOrg } from './orgs';
+import { IOrg } from '@/types/org.types';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 
@@ -84,6 +86,18 @@ export const confirmEmail = async (req: Request, res: Response) => {
       { username, 'emails.email': email },
       { $set: { verified: true, 'emails.$.verified': true } }
     );
+
+    const orgData: WithoutId<IOrg> = {
+      name: `${user.username}'s personal org`,
+      owner: user.username,
+      primaryColor: '',
+      secondaryColor: '',
+      logoUrl: '',
+      mlsFeeds: [],
+      deleted: false,
+    };
+
+    await createOrg(user, orgData);
 
     return res.json({ msg: 'You are verified now!' });
   } catch (error: any) {

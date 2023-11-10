@@ -18,6 +18,7 @@ export interface IUser {
   password: string;
   emails: IEmail[];
   phones?: IPhone[];
+  image?: string;
   verificationCode: string;
   verified: boolean;
   createdAt: number;

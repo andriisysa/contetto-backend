@@ -11,9 +11,10 @@ export interface IInvite {
   code: string;
   bindType: InviteType;
   bindId: ObjectId;
+  invitor: string; // invite username
   orgId: ObjectId;
   used: boolean;
-  usedBy?: string; // username
+  usedBy?: string; // invited username
   createdAt: number;
   usedAt?: number;
   role?: AgentRole;

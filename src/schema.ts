@@ -25,10 +25,11 @@ export const authSchema = {
 
 export const orgSchema = {
   create: [body('name').isString().withMessage('Org name is required!')],
-  invite: [
+  inviteAgent: [
     body('email').isString().withMessage('Enter the eamil'),
     body('role').isString().withMessage('Enter the role'),
   ],
+  inviteContact: [body('email').isString().withMessage('Enter the eamil')],
   acceptInvite: [body('code').isString().withMessage('Enter the code')],
   removeMember: [body('username').isString().withMessage('Enter the member username')],
 };

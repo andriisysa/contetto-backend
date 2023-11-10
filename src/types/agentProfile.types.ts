@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { IOrg } from './org.types';
+import { IUser } from './user.types';
 
 export enum AgentRole {
   owner = 'owner',
@@ -19,10 +20,13 @@ export interface IAgentProfile {
   orgId: ObjectId; // orgId + username is unique key
   org?: IOrg;
   username: string;
+  user?: IUser;
   email: string;
   phone?: string;
+  image?: string;
   description?: string;
   role: AgentRole;
+  invitor?: string; // invitor username
   deleted: boolean;
   createdAt: number;
   updatedAt: number;
