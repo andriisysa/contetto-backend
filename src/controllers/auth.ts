@@ -67,7 +67,7 @@ export const singup = async (req: Request, res: Response) => {
 
 export const confirmEmail = async (req: Request, res: Response) => {
   try {
-    let { username, email, verificationCode } = req.body;
+    let { username, email, verificationCode, orgNeeded = false } = req.body;
     username = String(username).toLowerCase().trim();
     email = String(email).trim();
 
@@ -87,17 +87,19 @@ export const confirmEmail = async (req: Request, res: Response) => {
       { $set: { verified: true, 'emails.$.verified': true } }
     );
 
-    const orgData: WithoutId<IOrg> = {
-      name: `${user.username}'s personal org`,
-      owner: user.username,
-      primaryColor: '',
-      secondaryColor: '',
-      logoUrl: '',
-      mlsFeeds: [],
-      deleted: false,
-    };
+    if (orgNeeded) {
+      const orgData: WithoutId<IOrg> = {
+        name: `${user.username}'s personal org`,
+        owner: user.username,
+        primaryColor: '',
+        secondaryColor: '',
+        logoUrl: '',
+        mlsFeeds: [],
+        deleted: false,
+      };
 
-    await createOrg(user, orgData);
+      await createOrg(user, orgData);
+    }
 
     return res.json({ msg: 'You are verified now!' });
   } catch (error: any) {
@@ -112,6 +114,9 @@ export const login = async (req: Request, res: Response) => {
     username = String(username).toLowerCase().trim();
 
     const user = await usersCol.findOne({ username, verified: true });
+    if (!user) {
+      return res.status(404).json({ msg: 'user not found' });
+    }
 
     if (user && (await compareHash(password, user.password))) {
       if (await setResponseHeader(res, user)) {
@@ -121,7 +126,7 @@ export const login = async (req: Request, res: Response) => {
       return res.status(500).json({ msg: 'Server error' });
     }
 
-    return res.status(404).json({ msg: 'user not found' });
+    return res.status(404).json({ msg: 'Password incorrect' });
   } catch (error) {
     console.log('login ===>', error);
     return res.status(500).json({ msg: 'login failed' });
