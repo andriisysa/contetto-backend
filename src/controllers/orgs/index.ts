@@ -29,6 +29,7 @@ export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
     createdAt: getNow(),
     updatedAt: getNow(),
   });
+  return newOrg;
 };
 
 export const create = async (req: Request, res: Response) => {
@@ -46,9 +47,9 @@ export const create = async (req: Request, res: Response) => {
       deleted: false,
     };
 
-    await createOrg(user, orgData);
+    const newOrg = await createOrg(user, orgData);
 
-    return res.json({ msg: 'Organization is created!' });
+    return res.json({ msg: 'Organization is created!', orgId: newOrg.insertedId });
   } catch (error) {
     console.log('Organization create error===>', error);
     return res.status(500).json({ msg: 'Organization create failed' });
@@ -94,7 +95,7 @@ export const getOne = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Organization does not exist' });
     }
 
-    return res.json(org);
+    return res.json({ org, agentProfile: req.agentProfile });
   } catch (error) {
     console.log('org getOne ===>', error);
     return res.status(500).json({ msg: 'Server error' });

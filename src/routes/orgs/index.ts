@@ -24,7 +24,7 @@ orgsRouter
   .post('', validate(orgSchema.create), create)
   .post('/', validate(orgSchema.create), create)
   .put('/:id', validate(orgSchema.create), orgRoleAuth(AgentRole.owner), update)
-  .get('/:id', orgRoleAuth('contact' as AgentRole), getOne)
+  .get('/:id', orgRoleAuth(AgentRole.agent), getOne)
   .get('', getMyOrgs)
   .get('/:id/members', orgRoleAuth(AgentRole.agent), getOrgMembers)
   .delete('/:id', orgRoleAuth(AgentRole.owner), deleteOne)
