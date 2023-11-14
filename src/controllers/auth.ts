@@ -137,6 +137,21 @@ export const getMe = async (req: Request, res: Response) => {
   return res.json(req.user);
 };
 
+export const update = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+
+    let { name } = req.body;
+
+    await usersCol.updateOne({ _id: user._id }, { $set: { name } });
+
+    return res.json({ ...user, name });
+  } catch (error: any) {
+    console.log('signup error ===>', error);
+    return res.status(500).json({ msg: `sign up failed: ${error.message}` });
+  }
+};
+
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
     let { email } = req.body;

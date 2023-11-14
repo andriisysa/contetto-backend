@@ -7,6 +7,7 @@ import {
   login,
   resetPassword,
   singup,
+  update,
 } from '@/controllers/auth';
 import validate from '@/middlewares/validation';
 import { authSchema } from '@/schema';
@@ -18,7 +19,7 @@ authRouter
   .post('/signup', validate(authSchema.signup), singup)
   .post('/login', validate(authSchema.login), login)
   .post('/confirm-email', validate(authSchema.confirmEmail), confirmEmail)
-  // .post('/update', update)
+  .post('/me', auth, update)
   .get('/me', auth, getMe)
   .post('/forgot-password', validate(authSchema.forgotPassword), forgotPassword)
   .post('/forgot-password-confirm', validate(authSchema.forgotPasswordConfirm), forgotPasswordConfirm)
