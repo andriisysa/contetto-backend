@@ -141,11 +141,15 @@ export const update = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
 
-    let { name } = req.body;
+    const { name } = req.body;
 
-    await usersCol.updateOne({ _id: user._id }, { $set: { name } });
+    await usersCol.updateOne({ username: user.username }, { $set: { name } });
 
-    return res.json({ ...user, name });
+    if (await setResponseHeader(res, { ...user, name })) {
+      return res.json({ ...user, name });
+    }
+
+    return res.status(500).json({ msg: 'Server error' });
   } catch (error: any) {
     console.log('signup error ===>', error);
     return res.status(500).json({ msg: `sign up failed: ${error.message}` });
@@ -215,7 +219,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     if (await compareHash(oldPassword, user.password)) {
       const password = await encrypt(newPassword);
 
-      await usersCol.updateOne({ _id: user._id }, { $set: { password: String(password) } });
+      await usersCol.updateOne({ username: user.username }, { $set: { password: String(password) } });
 
       return res.json({ msg: 'Password updated' });
     }
