@@ -29,7 +29,12 @@ export const orgSchema = {
     body('email').isString().withMessage('Enter the eamil'),
     body('role').isString().withMessage('Enter the role'),
   ],
-  inviteContact: [body('email').isString().withMessage('Enter the eamil')],
   acceptInvite: [body('code').isString().withMessage('Enter the code')],
   removeMember: [body('username').isString().withMessage('Enter the member username')],
+};
+
+export const contactSchema = {
+  create: [body('name').isString().withMessage('Contact name is required!')],
+  bind: [body('inviteCode').isString().withMessage('inviteCode is required!')],
+  search: [body('name').isString().withMessage('Contact name is required!')],
 };

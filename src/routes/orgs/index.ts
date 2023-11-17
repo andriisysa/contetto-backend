@@ -1,7 +1,7 @@
 import express from 'express';
 
 import validate from '@/middlewares/validation';
-import { orgSchema } from '@/schema';
+import { contactSchema, orgSchema } from '@/schema';
 import {
   acceptInvite,
   create,
@@ -16,6 +16,16 @@ import {
 } from '@/controllers/orgs';
 import orgRoleAuth from '@/middlewares/roleAuth';
 import { AgentRole } from '@/types/agentProfile.types';
+import {
+  bindContact,
+  createContact,
+  deleteContact,
+  getContact,
+  myContacts,
+  searchContacts,
+  shareContact,
+  updateContact,
+} from '@/controllers/contacts';
 
 const orgsRouter = express.Router();
 
@@ -34,6 +44,14 @@ orgsRouter
   .post('/:id/remove-member', validate(orgSchema.removeMember), orgRoleAuth(AgentRole.admin), removeMember)
   .post('/:id/leave', orgRoleAuth(AgentRole.agent), leaveOrg)
 
-  .post('/:id/contacts', validate(orgSchema.inviteContact), orgRoleAuth(AgentRole.agent))
+  // contacts
+  .post('/:id/contacts', validate(contactSchema.create), orgRoleAuth(AgentRole.agent), createContact)
+  .get('/:id/contacts', orgRoleAuth(AgentRole.agent), myContacts)
+  .get('/:id/contacts/:contactId', getContact)
+  .put('/:id/contacts/:contactId', validate(contactSchema.create), orgRoleAuth(AgentRole.agent), updateContact)
+  .delete('/:id/contacts/:contactId', orgRoleAuth(AgentRole.agent), deleteContact)
+  .post('/:id/contacts/:contactId/share', orgRoleAuth(AgentRole.agent), shareContact)
+  .post('/:id/contacts/:contactId/bind', validate(contactSchema.bind), bindContact)
+  .get('/:id/contacts/search', orgRoleAuth(AgentRole.agent), searchContacts);
 
 export default orgsRouter;

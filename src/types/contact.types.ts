@@ -5,19 +5,18 @@ import { IUser } from './user.types';
 
 export interface IContact {
   _id: ObjectId;
-  username: string;
-  email: string;
-  phone?: string;
-  image?: string;
+  name: string; // contact name
+  username?: string; // shared username
   user?: IUser;
-  name?: string;
+  image?: string;
   orgId: ObjectId;
   org?: IOrg;
   agentProfileId: ObjectId;
-  invitor: string; // agent usernmae
+  agentName: string; // agent usernmae
   agent?: IAgentProfile;
   createdAt: number;
   updatedAt: number;
   deleted: boolean;
   deletedAt?: number;
+  inviteCode?: string;
 }

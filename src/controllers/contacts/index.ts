@@ -6,38 +6,45 @@ import { db } from '@/database';
 import { IUser } from '@/types/user.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
 import { IContact } from '@/types/contact.types';
+import { getNow, getRandomString } from '@/utils';
 
 const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 
-export const create = async (req: Request, res: Response) => {
+export const createContact = async (req: Request, res: Response) => {
   try {
-    const user = req.user as IUser;
     const agentProfile = req.agentProfile as IAgentProfile;
 
+    const { name } = req.body;
+    const contact = await contactsCol.findOne({});
+    if (contact) {
+      return res.status(400).json({ msg: 'You already have this contact' });
+    }
 
-    return res.json({ msg: 'sent invitation' });
+    const data: WithoutId<IContact> = {
+      name,
+      orgId: agentProfile.orgId,
+      agentProfileId: agentProfile._id,
+      agentName: agentProfile.username,
+      createdAt: getNow(),
+      updatedAt: getNow(),
+      deleted: false,
+    };
+
+    const newContact = await contactsCol.insertOne(data);
+
+    return res.json({ ...data, _id: newContact.insertedId });
   } catch (error) {
-    console.log('org invite ===>', error);
+    console.log('createContact error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
 
 export const myContacts = async (req: Request, res: Response) => {
   try {
-    const user = req.user as IUser;
-    const { id: agentProfileId } = req.params;
+    const agentProfile = req.agentProfile as IAgentProfile;
 
-    const agentProfile = await agentProfilesCol.findOne({
-      _id: new ObjectId(agentProfileId),
-      username: user.username,
-      deleted: false,
-    });
-    if (!agentProfile) {
-      return res.status(400).json({ msg: "You don't have permission" });
-    }
-
-    const contacts = await contactsCol.find({ agentProfileId: new ObjectId(agentProfileId) }).toArray();
+    const contacts = await contactsCol.find({ agentProfileId: agentProfile._id, deleted: false }).toArray();
     return res.json(contacts);
   } catch (error) {
     console.log('myContacts error ===>', error);
@@ -45,44 +52,209 @@ export const myContacts = async (req: Request, res: Response) => {
   }
 };
 
-
-export const getOne = async (req: Request, res: Response) => {
+export const getContact = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
-    return res.json({});
+    const { id: orgId, contactId } = req.params;
+
+    const contacts = await contactsCol
+      .aggregate<IContact>([
+        {
+          $match: {
+            _id: new ObjectId(contactId),
+            orgId: new ObjectId(orgId),
+            deleted: false,
+          },
+        },
+        {
+          $lookup: {
+            from: 'orgs',
+            localField: 'orgId',
+            foreignField: '_id',
+            as: 'org',
+          },
+        },
+        {
+          $lookup: {
+            from: 'agentProfiles',
+            localField: 'agentProfileId',
+            foreignField: '_id',
+            as: 'agent',
+          },
+        },
+        {
+          $unwind: {
+            path: '$org',
+          },
+        },
+        {
+          $unwind: {
+            path: '$agent',
+          },
+        },
+      ])
+      .toArray();
+
+    if (contacts.length === 0) {
+      return res.status(404).json({ msg: 'No contact found' });
+    }
+
+    const contact = contacts[0];
+    if (user.username !== contact.username || user.username !== contact.agentName) {
+      return res.status(404).json({ msg: 'No contact found' });
+    }
+
+    return res.json(contact);
   } catch (error) {
-    console.log('myContacts error ===>', error);
+    console.log('getContact error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
 
-export const update = async (req: Request, res: Response) => {
+export const updateContact = async (req: Request, res: Response) => {
+  try {
+    const agentProfile = req.agentProfile as IAgentProfile;
+    const { contactId } = req.params;
+    const { name } = req.body;
+
+    const contact = await contactsCol.findOne({
+      _id: new ObjectId(contactId),
+      agentProfileId: agentProfile._id,
+      deleted: false,
+    });
+    if (!contact) {
+      return res.status(404).json({ msg: 'No contact found' });
+    }
+
+    const data: Partial<IContact> = {
+      name,
+    };
+
+    await contactsCol.updateOne({ _id: contact._id }, { $set: data });
+
+    return res.json({ ...contact, data });
+  } catch (error) {
+    console.log('updateContact error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const deleteContact = async (req: Request, res: Response) => {
+  try {
+    const agentProfile = req.agentProfile as IAgentProfile;
+    const { contactId } = req.params;
+
+    const contact = await contactsCol.findOne({
+      _id: new ObjectId(contactId),
+      agentProfileId: agentProfile._id,
+      deleted: false,
+    });
+    if (!contact) {
+      return res.status(404).json({ msg: 'No contact found' });
+    }
+
+    await contactsCol.deleteOne({ _id: contact._id });
+
+    return res.json({ msg: 'deleted' });
+  } catch (error) {
+    console.log('deleteContact error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const shareContact = async (req: Request, res: Response) => {
+  try {
+    const agentProfile = req.agentProfile as IAgentProfile;
+    const { contactId } = req.params;
+
+    const contact = await contactsCol.findOne({
+      _id: new ObjectId(contactId),
+      agentProfileId: agentProfile._id,
+      deleted: false,
+    });
+
+    if (!contact) {
+      return res.status(404).json({ msg: 'No contact found' });
+    }
+    if (contact.username) {
+      return res.status(400).json({ msg: `Contact is already binded to a user ${contact.username}` });
+    }
+
+    const inviteCode = getRandomString(10);
+    await contactsCol.updateOne({ _id: contact._id }, { $set: { inviteCode } });
+
+    return res.json({
+      link: `${process.env.WEB_URL}/${agentProfile.orgId}/contacts/${contactId}/share?inviteCode=${inviteCode}`,
+    });
+  } catch (error) {
+    console.log('shareContact error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const bindContact = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
-   
-    return res.json({});
+    const { contactId } = req.params;
+    const { inviteCode } = req.body;
+
+    const contact = await contactsCol.findOne({
+      _id: new ObjectId(contactId),
+      deleted: false,
+    });
+
+    if (!contact) {
+      return res.status(404).json({ msg: 'No contact found' });
+    }
+    if (contact.username) {
+      return res.status(400).json({ msg: `Contact is already binded to a user ${contact.username}` });
+    }
+    if (contact.inviteCode !== inviteCode) {
+      return res.status(400).json({ msg: 'Invalide code' });
+    }
+
+    // bind user
+    await contactsCol.updateOne({ _id: contact._id }, { $set: { username: user.username } });
+
+    return res.json({ ...contact, username: user.username });
   } catch (error) {
-    console.log('myContacts error ===>', error);
+    console.log('bindContact error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
 
-export const deleteOne = async (req: Request, res: Response) => {
+export const searchContacts = async (req: Request, res: Response) => {
   try {
-   
-    return res.json({});
-  } catch (error) {
-    console.log('myContacts error ===>', error);
-    return res.status(500).json({ msg: 'Server error' });
-  }
-};
+    const agentProfile = req.agentProfile as IAgentProfile;
+    const { search } = req.query;
 
-export const invite = async (req: Request, res: Response) => {
-  try {
-   
-    return res.json({});
+    const contacts = await contactsCol
+      .find({
+        agentProfileId: agentProfile._id,
+        ...(search
+          ? {
+              $or: [
+                {
+                  name: {
+                    $regex: String(search).replace(/[-[\]{}()*+?.,\\/^$|#\s]/g, '\\$&'),
+                    $options: 'i',
+                  },
+                },
+                {
+                  username: {
+                    $regex: String(search).replace(/[-[\]{}()*+?.,\\/^$|#\s]/g, '\\$&'),
+                    $options: 'i',
+                  },
+                },
+              ],
+            }
+          : {}),
+      })
+      .toArray();
+
+    return res.json(contacts);
   } catch (error) {
-    console.log('myContacts error ===>', error);
+    console.log('searchContacts error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
