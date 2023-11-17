@@ -43,25 +43,3 @@ export const getOne = async (req: Request, res: Response) => {
     return res.status(500).json({ msg: 'Server error' });
   }
 };
-
-export const myContacts = async (req: Request, res: Response) => {
-  try {
-    const user = req.user as IUser;
-    const { id: agentProfileId } = req.params;
-
-    const agentProfile = await agentProfilesCol.findOne({
-      _id: new ObjectId(agentProfileId),
-      username: user.username,
-      deleted: false,
-    });
-    if (!agentProfile) {
-      return res.status(400).json({ msg: "You don't have permission" });
-    }
-
-    const contacts = await contactsCol.find({ agentProfileId: new ObjectId(agentProfileId) }).toArray();
-    return res.json(contacts);
-  } catch (error) {
-    console.log('myContacts error ===>', error);
-    return res.status(500).json({ msg: 'Server error' });
-  }
-};

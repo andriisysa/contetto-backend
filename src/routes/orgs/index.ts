@@ -10,7 +10,6 @@ import {
   getOne,
   getOrgMembers,
   inviteAgent,
-  inviteContact,
   leaveOrg,
   removeMember,
   update,
@@ -26,12 +25,15 @@ orgsRouter
   .put('/:id', validate(orgSchema.create), orgRoleAuth(AgentRole.owner), update)
   .get('/:id', orgRoleAuth(AgentRole.agent), getOne)
   .get('', getMyOrgs)
-  .get('/:id/members', orgRoleAuth(AgentRole.agent), getOrgMembers)
   .delete('/:id', orgRoleAuth(AgentRole.owner), deleteOne)
+
+  // agents
+  .get('/:id/members', orgRoleAuth(AgentRole.agent), getOrgMembers)
   .post('/:id/invite-agent', validate(orgSchema.inviteAgent), orgRoleAuth(AgentRole.admin), inviteAgent)
-  .post('/:id/invite-contact', validate(orgSchema.inviteContact), orgRoleAuth(AgentRole.agent), inviteContact)
   .post('/:id/invite-accept', validate(orgSchema.acceptInvite), acceptInvite)
   .post('/:id/remove-member', validate(orgSchema.removeMember), orgRoleAuth(AgentRole.admin), removeMember)
-  .post('/:id/leave', orgRoleAuth(AgentRole.agent), leaveOrg);
+  .post('/:id/leave', orgRoleAuth(AgentRole.agent), leaveOrg)
+
+  .post('/:id/contacts', validate(orgSchema.inviteContact), orgRoleAuth(AgentRole.agent))
 
 export default orgsRouter;

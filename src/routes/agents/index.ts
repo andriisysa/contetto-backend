@@ -3,12 +3,10 @@
 
 import express from 'express';
 
-import { getOne, myContacts } from '@/controllers/agents';
+import { getOne } from '@/controllers/agents';
 
 const agentsRouter = express.Router();
 
-agentsRouter
-  .get('/:id', getOne)
-  .get('/:id/contacts', myContacts);
+agentsRouter.get('/:id', getOne);
 
 export default agentsRouter;

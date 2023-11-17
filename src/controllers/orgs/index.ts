@@ -8,7 +8,7 @@ import { sendEmail } from '@/utils/email';
 import { IOrg } from '@/types/org.types';
 import { IUser } from '@/types/user.types';
 import { AgentRole, IAgentProfile, roleOrder } from '@/types/agentProfile.types';
-import { IInvite, InviteType } from '@/types/invite.types';
+import { IInvite } from '@/types/invite.types';
 import { IContact } from '@/types/contact.types';
 
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
@@ -140,7 +140,7 @@ export const inviteAgent = async (req: Request, res: Response) => {
       undefined,
       `
         <p>You are invited to ${agentProfile.org?.name} by ${user.username}. Here's the
-        <a href="${process.env.WEB_URL}/invitations/${agentProfile.orgId}?code=${code}" target="_blank">link</a>
+        <a href="${process.env.WEB_URL}/${agentProfile.orgId}/invitations?code=${code}" target="_blank">link</a>
         It will be expired in 2 hours.
         </p>
       `
@@ -148,50 +148,12 @@ export const inviteAgent = async (req: Request, res: Response) => {
 
     await invitesCol.insertOne({
       code,
-      bindType: InviteType.org,
-      bindId: agentProfile._id,
+      invitorId: agentProfile._id,
       invitor: user.username,
       orgId: agentProfile.orgId,
       used: false,
       createdAt: getNow(),
       role,
-    });
-
-    return res.json({ msg: 'sent invitation' });
-  } catch (error) {
-    console.log('org invite ===>', error);
-    return res.status(500).json({ msg: 'Server error' });
-  }
-};
-
-export const inviteContact = async (req: Request, res: Response) => {
-  try {
-    const user = req.user as IUser;
-    const agentProfile = req.agentProfile as IAgentProfile;
-
-    const { email } = req.body;
-
-    const code = getRandomString(10);
-    await sendEmail(
-      email,
-      'Confirm email',
-      undefined,
-      `
-        <p>You are invited to ${agentProfile.org?.name} by ${user.username}. Here's the
-        <a href="${process.env.WEB_URL}/invitations/${agentProfile.orgId}?code=${code}" target="_blank">link</a>
-        It will be expired in 2 hours.
-        </p>
-      `
-    );
-
-    await invitesCol.insertOne({
-      code,
-      bindType: InviteType.contact,
-      bindId: agentProfile._id,
-      invitor: user.username,
-      orgId: agentProfile.orgId,
-      used: false,
-      createdAt: getNow(),
     });
 
     return res.json({ msg: 'sent invitation' });
@@ -216,36 +178,33 @@ export const acceptInvite = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'Invite code invalid' });
     }
 
+    if (invite.createdAt + 2 * 3600 < getNow()) {
+      return res.status(400).json({ msg: 'Invite code expired' });
+    }
+
     const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
     if (!org) {
       return res.status(404).json({ msg: 'No organization found' });
     }
 
-    if (invite.bindType === InviteType.org) {
-      await agentProfilesCol.insertOne({
-        username: user.username,
-        orgId: org._id,
-        email: user.emails[0].email,
-        phone: '',
-        description: '',
-        invitor: invite.invitor,
-        role: invite.role as AgentRole,
-        deleted: false,
-        createdAt: getNow(),
-        updatedAt: getNow(),
-      });
-    } else if (invite.bindType === InviteType.contact) {
-      await contactsCol.insertOne({
-        username: user.username,
-        email: user.emails[0].email,
-        orgId: org._id,
-        agentProfileId: invite.bindId,
-        invitor: invite.invitor,
-        createdAt: getNow(),
-        updatedAt: getNow(),
-        deleted: false,
-      });
+    // check already exists
+    const agent = await agentProfilesCol.findOne({ username: user.username, orgId: org._id });
+    if (agent) {
+      return res.status(400).json({ msg: 'You already accepted invitation' });
     }
+
+    await agentProfilesCol.insertOne({
+      username: user.username,
+      orgId: org._id,
+      email: user.emails[0].email,
+      phone: '',
+      description: '',
+      invitor: invite.invitor,
+      role: invite.role as AgentRole,
+      deleted: false,
+      createdAt: getNow(),
+      updatedAt: getNow(),
+    });
 
     await invitesCol.updateOne(
       { _id: invite._id },
