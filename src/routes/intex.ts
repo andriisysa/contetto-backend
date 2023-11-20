@@ -3,7 +3,6 @@ import authRouter from './authRouter';
 import auth from '@/middlewares/auth';
 import orgsRouter from './orgs';
 import agentsRouter from './agents';
-import serachRouter from './search';
 
 const router = express.Router();
 
@@ -13,7 +12,6 @@ router
 
   .use('/auth', authRouter)
   .use('/orgs', auth, orgsRouter)
-  .use('/agents', auth, agentsRouter)
-  .use('/search', auth, serachRouter);
+  .use('/agents', auth, agentsRouter);
 
 export default router;

@@ -38,3 +38,8 @@ export const contactSchema = {
   bind: [body('inviteCode').isString().withMessage('inviteCode is required!')],
   search: [body('name').isString().withMessage('Contact name is required!')],
 };
+
+export const searchScheme = {
+  save: [body('searchName').isString().withMessage('Search name is required!')],
+  share: [body('contactId').isString().withMessage('ContactId is required!')],
+};

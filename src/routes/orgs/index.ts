@@ -1,7 +1,7 @@
 import express from 'express';
 
 import validate from '@/middlewares/validation';
-import { contactSchema, orgSchema } from '@/schema';
+import { contactSchema, orgSchema, searchScheme } from '@/schema';
 import {
   acceptInvite,
   create,
@@ -26,6 +26,18 @@ import {
   shareContact,
   updateContact,
 } from '@/controllers/contacts';
+import {
+  deleteSearchResult,
+  getSearchProperties,
+  getSearchResults,
+  rejectProperty,
+  saveSearch,
+  searchListings,
+  shareSearch,
+  shortlistProperty,
+} from '@/controllers/search';
+import { getPriority } from 'os';
+import { searchAuth, searchResultAuth } from '@/middlewares/searchAuth';
 
 const orgsRouter = express.Router();
 
@@ -52,6 +64,17 @@ orgsRouter
   .delete('/:id/contacts/:contactId', orgRoleAuth(AgentRole.agent), deleteContact)
   .post('/:id/contacts/:contactId/share', orgRoleAuth(AgentRole.agent), shareContact)
   .post('/:id/contacts/:contactId/bind', validate(contactSchema.bind), bindContact)
-  .get('/:id/contacts/search', orgRoleAuth(AgentRole.agent), searchContacts);
+  .get('/:id/contacts/search', orgRoleAuth(AgentRole.agent), searchContacts)
+
+  // search
+  .get('/:id/search', searchAuth, searchListings)
+  .post('/:id/search-results/:searchId', validate(searchScheme.save), searchResultAuth(false), saveSearch)
+  .post('/:id/search-results/:searchId/share', validate(searchScheme.share), orgRoleAuth(AgentRole.agent), shareSearch)
+  .get('/:id/search-results', searchAuth, getSearchResults)
+  .get('/:id/search-results/:searchId', searchResultAuth(true), getSearchProperties)
+  .delete('/:id/search-results/:searchId', searchResultAuth(false), deleteSearchResult)
+  .get('/:id/search-results/:searchId/property/:propertyId', searchResultAuth(true), getPriority)
+  .post('/:id/search-results/:searchId/property/:propertyId/shortlist', searchResultAuth(true), shortlistProperty)
+  .post('/:id/search-results/:searchId/property/:propertyId/reject', searchResultAuth(true), rejectProperty);
 
 export default orgsRouter;

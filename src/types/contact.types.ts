@@ -6,6 +6,7 @@ import { IUser } from './user.types';
 export interface IContact {
   _id: ObjectId;
   name: string; // contact name
+  note: string;
   username?: string; // shared username
   user?: IUser;
   image?: string;

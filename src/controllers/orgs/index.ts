@@ -140,7 +140,7 @@ export const inviteAgent = async (req: Request, res: Response) => {
       undefined,
       `
         <p>You are invited to ${agentProfile.org?.name} by ${user.username}. Here's the
-        <a href="${process.env.WEB_URL}/${agentProfile.orgId}/invitations?code=${code}" target="_blank">link</a>
+        <a href="${process.env.WEB_URL}/invitations/${agentProfile.orgId}?code=${code}" target="_blank">link</a>
         It will be expired in 2 hours.
         </p>
       `
