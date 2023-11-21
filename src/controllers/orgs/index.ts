@@ -193,7 +193,7 @@ export const acceptInvite = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'You already accepted invitation' });
     }
 
-    await agentProfilesCol.insertOne({
+    const data: WithoutId<IAgentProfile> = {
       username: user.username,
       orgId: org._id,
       email: user.emails[0].email,
@@ -204,7 +204,9 @@ export const acceptInvite = async (req: Request, res: Response) => {
       deleted: false,
       createdAt: getNow(),
       updatedAt: getNow(),
-    });
+    };
+
+    const newAgent = await agentProfilesCol.insertOne(data);
 
     await invitesCol.updateOne(
       { _id: invite._id },
@@ -217,7 +219,7 @@ export const acceptInvite = async (req: Request, res: Response) => {
       }
     );
 
-    return res.json({ msg: 'Accepted' });
+    return res.json({ ...data, _id: newAgent.insertedId });
   } catch (error) {
     console.log('org accept invite ===>', error);
     return res.status(500).json({ msg: 'Server error' });
