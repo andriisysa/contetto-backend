@@ -59,12 +59,12 @@ orgsRouter
   // contacts
   .post('/:id/contacts', validate(contactSchema.create), orgRoleAuth(AgentRole.agent), createContact)
   .get('/:id/contacts', orgRoleAuth(AgentRole.agent), myContacts)
+  .get('/:id/contacts/search', orgRoleAuth(AgentRole.agent), searchContacts)
   .get('/:id/contacts/:contactId', getContact)
   .put('/:id/contacts/:contactId', validate(contactSchema.create), orgRoleAuth(AgentRole.agent), updateContact)
   .delete('/:id/contacts/:contactId', orgRoleAuth(AgentRole.agent), deleteContact)
   .post('/:id/contacts/:contactId/share', orgRoleAuth(AgentRole.agent), shareContact)
   .post('/:id/contacts/:contactId/bind', validate(contactSchema.bind), bindContact)
-  .get('/:id/contacts/search', orgRoleAuth(AgentRole.agent), searchContacts)
 
   // search
   .get('/:id/search', searchAuth, searchListings)
