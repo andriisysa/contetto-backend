@@ -113,12 +113,24 @@ export const searchListings = async (req: Request, res: Response) => {
 export const saveSearch = async (req: Request, res: Response) => {
   try {
     const searchResult = req.searchResult as ISearchResult;
-    const { searchName } = req.body;
+    const { searchName, contactId } = req.body;
 
-    await searchResultsCol.updateOne(
-      { _id: searchResult._id },
-      { $set: { searchName, savedForAgent: !!searchResult.agentProfileId } }
-    );
+    const data: Partial<ISearchResult> = {
+      searchName,
+      savedForAgent: true,
+    };
+
+    if (contactId) {
+      const contact = await contactsCol.findOne({ _id: new ObjectId(contactId) });
+      if (!contact) {
+        return res.status(404).json({ msg: 'No contact' });
+      }
+
+      data.contactId = contact._id;
+      data.savedForAgent = false;
+    }
+
+    await searchResultsCol.updateOne({ _id: searchResult._id }, { $set: data });
 
     return res.json({ msg: 'Saved' });
   } catch (error) {

@@ -50,7 +50,7 @@ export const searchAuth = async (req: Request, res: Response, next: NextFunction
 
     await next();
   } catch (error) {
-    console.log('searchResultAuth error ===>', error);
+    console.log('searchAuth error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };

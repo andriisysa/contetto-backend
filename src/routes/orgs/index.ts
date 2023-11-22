@@ -28,6 +28,7 @@ import {
 } from '@/controllers/contacts';
 import {
   deleteSearchResult,
+  getProperty,
   getSearchProperties,
   getSearchResults,
   rejectProperty,
@@ -36,7 +37,6 @@ import {
   shareSearch,
   shortlistProperty,
 } from '@/controllers/search';
-import { getPriority } from 'os';
 import { searchAuth, searchResultAuth } from '@/middlewares/searchAuth';
 
 const orgsRouter = express.Router();
@@ -73,7 +73,7 @@ orgsRouter
   .get('/:id/search-results', searchAuth, getSearchResults)
   .get('/:id/search-results/:searchId', searchResultAuth(true), getSearchProperties)
   .delete('/:id/search-results/:searchId', searchResultAuth(false), deleteSearchResult)
-  .get('/:id/search-results/:searchId/property/:propertyId', searchResultAuth(true), getPriority)
+  .get('/:id/search-results/:searchId/property/:propertyId', searchResultAuth(true), getProperty)
   .post('/:id/search-results/:searchId/property/:propertyId/shortlist', searchResultAuth(true), shortlistProperty)
   .post('/:id/search-results/:searchId/property/:propertyId/reject', searchResultAuth(true), rejectProperty);
 
