@@ -15,10 +15,6 @@ export const createContact = async (req: Request, res: Response) => {
     const agentProfile = req.agentProfile as IAgentProfile;
 
     const { name, note = '' } = req.body;
-    const contact = await contactsCol.findOne({});
-    if (contact) {
-      return res.status(400).json({ msg: 'You already have this contact' });
-    }
 
     const data: WithoutId<IContact> = {
       name,
@@ -28,7 +24,6 @@ export const createContact = async (req: Request, res: Response) => {
       agentName: agentProfile.username,
       createdAt: getNow(),
       updatedAt: getNow(),
-      deleted: false,
     };
 
     const newContact = await contactsCol.insertOne(data);
@@ -44,7 +39,7 @@ export const myContacts = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile as IAgentProfile;
 
-    const contacts = await contactsCol.find({ agentProfileId: agentProfile._id, deleted: false }).toArray();
+    const contacts = await contactsCol.find({ agentProfileId: agentProfile._id }).toArray();
     return res.json(contacts);
   } catch (error) {
     console.log('myContacts error ===>', error);
@@ -63,7 +58,6 @@ export const getContact = async (req: Request, res: Response) => {
           $match: {
             _id: new ObjectId(contactId),
             orgId: new ObjectId(orgId),
-            deleted: false,
           },
         },
         {
@@ -120,7 +114,6 @@ export const updateContact = async (req: Request, res: Response) => {
     const contact = await contactsCol.findOne({
       _id: new ObjectId(contactId),
       agentProfileId: agentProfile._id,
-      deleted: false,
     });
     if (!contact) {
       return res.status(404).json({ msg: 'No contact found' });
@@ -148,7 +141,6 @@ export const deleteContact = async (req: Request, res: Response) => {
     const contact = await contactsCol.findOne({
       _id: new ObjectId(contactId),
       agentProfileId: agentProfile._id,
-      deleted: false,
     });
     if (!contact) {
       return res.status(404).json({ msg: 'No contact found' });
@@ -171,7 +163,6 @@ export const shareContact = async (req: Request, res: Response) => {
     const contact = await contactsCol.findOne({
       _id: new ObjectId(contactId),
       agentProfileId: agentProfile._id,
-      deleted: false,
     });
 
     if (!contact) {
@@ -201,7 +192,6 @@ export const bindContact = async (req: Request, res: Response) => {
 
     const contact = await contactsCol.findOne({
       _id: new ObjectId(contactId),
-      deleted: false,
     });
 
     if (!contact) {

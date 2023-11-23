@@ -7,7 +7,7 @@ import { IContact } from '@/types/contact.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
 import { IOrg } from '@/types/org.types';
 
-const searchResultsCol = searchDB.collection<WithoutId<ISearchResult>>('searchResults');
+const searchResultsCol = db.collection<WithoutId<ISearchResult>>('searchResults');
 const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
@@ -66,27 +66,62 @@ export const searchResultAuth =
         return res.status(401).json({ msg: 'Invalid request' });
       }
 
-      const searchResult = await searchResultsCol.findOne({
-        _id: new ObjectId(searchId),
-        orgId: new ObjectId(orgId),
-      });
+      const searchResults = await searchResultsCol
+        .aggregate<ISearchResult>([
+          {
+            $match: {
+              _id: new ObjectId(searchId),
+              orgId: new ObjectId(orgId),
+            },
+          },
+          {
+            $lookup: {
+              from: 'agentProfiles',
+              localField: 'agentProfileId',
+              foreignField: '_id',
+              // pipeline: [
+              //   {
+              //     $match: {
+              //       deleted: false,
+              //     },
+              //   },
+              // ],
+              as: 'agentProfile',
+            },
+          },
+          {
+            $lookup: {
+              from: 'contacts',
+              localField: 'contactId',
+              foreignField: '_id',
+              as: 'contact',
+            },
+          },
+          {
+            $unwind: {
+              path: '$agentProfile',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $unwind: {
+              path: '$contact',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+        ])
+        .toArray();
 
-      if (!searchResult) {
+      if (searchResults.length === 0) {
         return res.status(404).json({ msg: 'No search result' });
       }
+
+      const searchResult = searchResults[0];
 
       // if not the same user whether it's agent or contact
       if (user.username !== searchResult.username) {
         if (contactAccessbile) {
-          // check contact
-          const contact = await contactsCol.findOne({
-            _id: searchResult.contactId,
-            orgId: searchResult.orgId,
-            agentProfileId: searchResult.agentProfileId,
-            username: user.username,
-            deleted: false,
-          });
-          if (!contact) {
+          if (!searchResult.contact || searchResult.contact.username !== user.username) {
             return res.status(404).json({ msg: 'No search result' });
           }
         } else {

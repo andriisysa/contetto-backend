@@ -114,7 +114,7 @@ export const deleteOne = async (req: Request, res: Response) => {
 
     // Todo: delete all agentProfiles and contacts
     await agentProfilesCol.updateMany({ orgId: new ObjectId(orgId) }, { $set: { deleted: true, deletedAt: getNow() } });
-    await contactsCol.updateMany({ orgId: new ObjectId(orgId) }, { $set: { deleted: true, deletedAt: getNow() } });
+    await contactsCol.deleteMany({ orgId: new ObjectId(orgId) });
 
     return res.json({ msg: 'Organization deleted!' });
   } catch (error) {
@@ -272,7 +272,6 @@ export const getMyOrgs = async (req: Request, res: Response) => {
         {
           $match: {
             username: user.username,
-            deleted: false,
           },
         },
         {
@@ -350,10 +349,7 @@ export const removeMember = async (req: Request, res: Response) => {
     }
 
     await agentProfilesCol.updateOne({ _id: tagetUserProfile._id }, { $set: { deleted: true, deletedAt: getNow() } });
-    await contactsCol.updateMany(
-      { orgId: tagetUserProfile.orgId, agentProfileId: tagetUserProfile._id },
-      { $set: { deleted: true, deletedAt: getNow() } }
-    );
+    await contactsCol.deleteMany({ orgId: tagetUserProfile.orgId, agentProfileId: tagetUserProfile._id });
 
     return res.json({ msg: 'removed!' });
   } catch (error) {
@@ -367,10 +363,7 @@ export const leaveOrg = async (req: Request, res: Response) => {
     const agentProfile = req.agentProfile as IAgentProfile;
 
     await agentProfilesCol.updateOne({ _id: agentProfile._id }, { $set: { deleted: true, deletedAt: getNow() } });
-    await contactsCol.updateMany(
-      { orgId: agentProfile.orgId, agentProfileId: agentProfile._id },
-      { $set: { deleted: true, deletedAt: getNow() } }
-    );
+    await contactsCol.deleteMany({ orgId: agentProfile.orgId, agentProfileId: agentProfile._id });
 
     return res.json({ msg: 'You left' });
   } catch (error) {

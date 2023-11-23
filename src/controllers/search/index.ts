@@ -13,7 +13,7 @@ import { IOrg } from '@/types/org.types';
 dotenv.config();
 
 const listingsCol = searchDB.collection('SampleListings');
-const searchResultsCol = searchDB.collection<WithoutId<ISearchResult>>('searchResults');
+const searchResultsCol = db.collection<WithoutId<ISearchResult>>('searchResults');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 
 const processValue = (apiResponseData: any, userQuery: any) => {
@@ -103,7 +103,10 @@ export const searchListings = async (req: Request, res: Response) => {
 
     const newResult = await searchResultsCol.insertOne(data);
 
-    return res.json({ properties: results, searchResult: { ...data, _id: newResult.insertedId } });
+    return res.json({
+      properties: results,
+      searchResult: { ...data, _id: newResult.insertedId, agentProfile: req.agentProfile, constact: req.contact },
+    });
   } catch (error) {
     console.log('searchListings error ===>', error);
     return res.status(500).json({ msg: 'Server error' });

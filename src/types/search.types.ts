@@ -13,7 +13,7 @@ export interface ISearchResult {
   agentProfileId?: ObjectId;
   agentProfile?: IAgentProfile;
   contactId?: ObjectId; // contact this search has been saved to
-  constact?: IContact;
+  contact?: IContact;
   searchName?: string; // if user manually saves the search they can add a name to it
   savedForAgent: boolean; // if the agent saves it in their personal "my saves searches"
   watched: boolean; // whether our cron is searching this periodically in the background and alerting contact+agent to new results
