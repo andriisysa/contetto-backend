@@ -3,6 +3,7 @@ import { AgentRole } from './agentProfile.types';
 
 export interface IInvite {
   _id: ObjectId;
+  email: string;
   code: string;
   invitorId: ObjectId; // agent profileId
   invitor: string; // invite username
@@ -11,5 +12,5 @@ export interface IInvite {
   usedBy?: string; // invited username
   createdAt: number;
   usedAt?: number;
-  role?: AgentRole;
+  role: AgentRole;
 }

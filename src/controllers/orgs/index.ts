@@ -18,7 +18,7 @@ const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 
 export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
   const newOrg = await orgsCol.insertOne(orgData);
-  await agentProfilesCol.insertOne({
+  const newAgent = await agentProfilesCol.insertOne({
     orgId: newOrg.insertedId,
     username: user.username,
     email: String(user.emails.find((email) => email.primary)?.email),
@@ -29,7 +29,7 @@ export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
     createdAt: getNow(),
     updatedAt: getNow(),
   });
-  return newOrg;
+  return { newOrg, newAgent };
 };
 
 export const create = async (req: Request, res: Response) => {
@@ -47,9 +47,9 @@ export const create = async (req: Request, res: Response) => {
       deleted: false,
     };
 
-    const newOrg = await createOrg(user, orgData);
+    const { newOrg, newAgent } = await createOrg(user, orgData);
 
-    return res.json({ msg: 'Organization is created!', orgId: newOrg.insertedId });
+    return res.json({ orgId: newOrg.insertedId, agentProfileId: newAgent.insertedId });
   } catch (error) {
     console.log('Organization create error===>', error);
     return res.status(500).json({ msg: 'Organization create failed' });
@@ -133,7 +133,15 @@ export const inviteAgent = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: `You don't have permission to invite ${role} role` });
     }
 
+    const invite = await invitesCol.findOne({
+      email,
+      orgId: agentProfile.orgId,
+      used: false,
+      createdAt: { $gte: getNow() - 2 * 3600 }, // check expiry time
+    });
+
     const code = getRandomString(10);
+
     await sendEmail(
       email,
       'Confirm email',
@@ -146,7 +154,8 @@ export const inviteAgent = async (req: Request, res: Response) => {
       `
     );
 
-    await invitesCol.insertOne({
+    const data: WithoutId<IInvite> = {
+      email,
       code,
       invitorId: agentProfile._id,
       invitor: user.username,
@@ -154,7 +163,12 @@ export const inviteAgent = async (req: Request, res: Response) => {
       used: false,
       createdAt: getNow(),
       role,
-    });
+    };
+    if (invite) {
+      await invitesCol.updateOne({ _id: invite._id }, { $set: data });
+    } else {
+      await invitesCol.insertOne(data);
+    }
 
     return res.json({ msg: 'sent invitation' });
   } catch (error) {
@@ -302,7 +316,15 @@ export const getOrgMembers = async (req: Request, res: Response) => {
     const { id: orgId } = req.params;
     const members = await agentProfilesCol.find({ orgId: new ObjectId(orgId), deleted: false }).toArray();
 
-    return res.json(members);
+    const invitations = await invitesCol
+      .find({
+        orgId: new ObjectId(orgId),
+        used: false,
+        createdAt: { $gte: getNow() - 2 * 3600 }, // check expiry time
+      })
+      .toArray();
+
+    return res.json({ members, invitations });
   } catch (error) {
     console.log('getOrgMembers error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
