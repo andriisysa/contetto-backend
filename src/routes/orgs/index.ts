@@ -36,6 +36,7 @@ import {
   searchListings,
   shareSearch,
   shortlistProperty,
+  undoProperty,
 } from '@/controllers/search';
 import { searchAuth, searchResultAuth } from '@/middlewares/searchAuth';
 
@@ -75,6 +76,7 @@ orgsRouter
   .delete('/:id/search-results/:searchId', searchResultAuth(false), deleteSearchResult)
   .get('/:id/search-results/:searchId/property/:propertyId', searchResultAuth(true), getProperty)
   .post('/:id/search-results/:searchId/property/:propertyId/shortlist', searchResultAuth(true), shortlistProperty)
-  .post('/:id/search-results/:searchId/property/:propertyId/reject', searchResultAuth(true), rejectProperty);
+  .post('/:id/search-results/:searchId/property/:propertyId/reject', searchResultAuth(true), rejectProperty)
+  .post('/:id/search-results/:searchId/property/:propertyId/undo', searchResultAuth(true), undoProperty);
 
 export default orgsRouter;

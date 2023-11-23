@@ -188,7 +188,7 @@ export const getSearchResults = async (req: Request, res: Response) => {
     if (agentProfile) {
       filter.agentProfileId = agentProfile._id;
       filter.username = user.username;
-      filter.contactId = undefined;
+      // filter.contactId = undefined;
     }
     if (contact) {
       filter.contactId = contact._id;
@@ -276,6 +276,35 @@ export const rejectProperty = async (req: Request, res: Response) => {
     }
 
     const rejects: ObjectId[] = [...searchResult.rejects.filter((id) => id.toString() !== propertyId), property._id];
+    const shortlists: ObjectId[] = searchResult.shortlists.filter((id) => id.toString() !== propertyId);
+    await searchResultsCol.updateOne(
+      { _id: searchResult._id },
+      {
+        $set: {
+          rejects,
+          shortlists,
+        },
+      }
+    );
+
+    return res.json({ property, searchResult: { ...searchResult, rejects, shortlists } });
+  } catch (error) {
+    console.log('rejectProperty error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const undoProperty = async (req: Request, res: Response) => {
+  try {
+    const searchResult = req.searchResult as ISearchResult;
+    const { propertyId } = req.params;
+
+    const property = await listingsCol.findOne({ _id: new ObjectId(propertyId) });
+    if (!property) {
+      return res.status(404).json({ msg: 'No property found' });
+    }
+
+    const rejects: ObjectId[] = searchResult.rejects.filter((id) => id.toString() !== propertyId);
     const shortlists: ObjectId[] = searchResult.shortlists.filter((id) => id.toString() !== propertyId);
     await searchResultsCol.updateOne(
       { _id: searchResult._id },
