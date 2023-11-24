@@ -168,7 +168,7 @@ export const shareSearch = async (req: Request, res: Response) => {
       { $set: { contactId: contact._id, savedForAgent: false } }
     );
 
-    return res.json({ msg: 'Shared' });
+    return res.json({ ...searchResult, contactId: contact._id, contact });
   } catch (error) {
     console.log('shareSearch error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
