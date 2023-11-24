@@ -7,8 +7,10 @@ import { IUser } from '@/types/user.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
 import { IContact } from '@/types/contact.types';
 import { getNow, getRandomString } from '@/utils';
+import { ISearchResult } from '@/types/search.types';
 
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
+const searchResultsCol = db.collection<WithoutId<ISearchResult>>('searchResults');
 
 export const createContact = async (req: Request, res: Response) => {
   try {
@@ -147,6 +149,19 @@ export const deleteContact = async (req: Request, res: Response) => {
     }
 
     await contactsCol.deleteOne({ _id: contact._id });
+    await searchResultsCol.updateMany(
+      {
+        orgId: contact.orgId,
+        agentProfileId: contact.agentProfileId,
+        contactId: contact._id,
+      },
+      {
+        $set: { savedForAgent: true },
+        $unset: {
+          contactId: '',
+        },
+      }
+    );
 
     return res.json({ msg: 'deleted' });
   } catch (error) {
@@ -176,7 +191,7 @@ export const shareContact = async (req: Request, res: Response) => {
     await contactsCol.updateOne({ _id: contact._id }, { $set: { inviteCode } });
 
     return res.json({
-      link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}/share?inviteCode=${inviteCode}`,
+      link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}?inviteCode=${inviteCode}`,
     });
   } catch (error) {
     console.log('shareContact error ===>', error);
