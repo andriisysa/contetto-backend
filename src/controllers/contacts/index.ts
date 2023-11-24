@@ -94,7 +94,7 @@ export const getContact = async (req: Request, res: Response) => {
     }
 
     const contact = contacts[0];
-    if (user.username !== contact.username || user.username !== contact.agentName) {
+    if (user.username !== contact.username && user.username !== contact.agentName) {
       return res.status(404).json({ msg: 'No contact found' });
     }
 
