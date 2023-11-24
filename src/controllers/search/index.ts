@@ -176,7 +176,7 @@ export const shareSearch = async (req: Request, res: Response) => {
 };
 
 // get my search results for an agent or a contact
-export const getSearchResults = async (req: Request, res: Response) => {
+export const getMySearchResults = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
     const agentProfile = req.agentProfile;

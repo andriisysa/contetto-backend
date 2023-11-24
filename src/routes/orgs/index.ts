@@ -31,7 +31,7 @@ import {
   getContactSearchResults,
   getProperty,
   getSearchProperties,
-  getSearchResults,
+  getMySearchResults,
   rejectProperty,
   saveSearch,
   searchListings,
@@ -73,7 +73,7 @@ orgsRouter
   .post('/:id/search-results/:searchId', validate(searchScheme.save), searchResultAuth(false), saveSearch)
   .post('/:id/search-results/:searchId/share', validate(searchScheme.share), orgRoleAuth(AgentRole.agent), shareSearch)
   // get search results for me whether it's an agent or a contact
-  .get('/:id/search-results', searchAuth, getSearchResults)
+  .get('/:id/search-results', searchAuth, getMySearchResults)
   // as an agent, get search results for a specific contact
   .get('/:id/search-results/contacts/:contactId', orgRoleAuth(AgentRole.agent), getContactSearchResults)
   .get('/:id/search-results/:searchId', searchResultAuth(true), getSearchProperties)
