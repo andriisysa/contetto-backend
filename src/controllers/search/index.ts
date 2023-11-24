@@ -175,6 +175,7 @@ export const shareSearch = async (req: Request, res: Response) => {
   }
 };
 
+// get my search results for an agent or a contact
 export const getSearchResults = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
@@ -194,7 +195,67 @@ export const getSearchResults = async (req: Request, res: Response) => {
       filter.contactId = contact._id;
     }
 
-    const searchResults = await searchResultsCol.find(filter).toArray();
+    const searchResults = await searchResultsCol
+      .aggregate([
+        { $match: filter },
+        {
+          $lookup: {
+            from: 'contacts',
+            localField: 'contactId',
+            foreignField: '_id',
+            as: 'contact',
+          },
+        },
+        {
+          $unwind: {
+            path: '$contact',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+      ])
+      .toArray();
+
+    return res.json(searchResults);
+  } catch (error) {
+    console.log('getSearchResults error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+// get contact search result as an agent
+export const getContactSearchResults = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+    const agentProfile = req.agentProfile as IAgentProfile;
+    const { contactId } = req.params;
+
+    const filter: any = {
+      username: user.username,
+      agentProfileId: agentProfile._id,
+      orgId: agentProfile.orgId,
+      searchName: { $ne: undefined },
+      contactId: new ObjectId(contactId),
+    };
+
+    const searchResults = await searchResultsCol
+      .aggregate([
+        { $match: filter },
+        {
+          $lookup: {
+            from: 'contacts',
+            localField: 'contactId',
+            foreignField: '_id',
+            as: 'contact',
+          },
+        },
+        {
+          $unwind: {
+            path: '$contact',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+      ])
+      .toArray();
 
     return res.json(searchResults);
   } catch (error) {
