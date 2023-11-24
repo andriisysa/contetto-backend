@@ -31,7 +31,6 @@ export const searchAuth = async (req: Request, res: Response, next: NextFunction
         _id: new ObjectId(String(contactId)),
         username: user.username,
         orgId: org._id,
-        deleted: false,
       })) as IContact;
     } else {
       agentProfile = (await agentProfilesCol.findOne({
