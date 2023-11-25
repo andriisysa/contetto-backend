@@ -219,8 +219,26 @@ export const bindContact = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Invalide code' });
     }
 
+    const existingContact = await contactsCol.findOne({
+      orgId: contact.orgId,
+      agentProfileId: contact.agentProfileId,
+      username: user.username,
+    });
+    if (existingContact) {
+      return res.status(400).json({ msg: `This user is already binded to a contact ${existingContact.name}` });
+    }
+
     // bind user
-    await contactsCol.updateOne({ _id: contact._id }, { $set: { username: user.username } });
+    await contactsCol.updateOne(
+      { _id: contact._id },
+      {
+        $set: {
+          username: user.username,
+          email: user.emails[0].email,
+          phone: user.phones ? user.phones[0].phone : undefined,
+        },
+      }
+    );
 
     return res.json({ ...contact, username: user.username });
   } catch (error) {
