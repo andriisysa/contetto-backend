@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { IUser } from '@/types/user.types';
-import { db, searchDB } from '@/database';
+import { db } from '@/database';
 import { ObjectId, WithoutId } from 'mongodb';
 import { ISearchResult } from '@/types/search.types';
 import { IContact } from '@/types/contact.types';

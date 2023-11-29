@@ -5,7 +5,8 @@ import { IContact } from './contact.types';
 
 export interface ISearchResult {
   _id: ObjectId;
-  queryString: string; /// the string they typed
+  userQueryString: string; /// the string they typed
+  userQueryJson?: any; /// options what user choose
   queryJSON: any; /// GPT interpreted version
   orgId: ObjectId; // orgId
   org?: IOrg;

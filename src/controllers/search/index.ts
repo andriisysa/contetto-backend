@@ -1,18 +1,17 @@
 import dotenv from 'dotenv';
 import type { Request, Response } from 'express';
 import axios from 'axios';
-import { db, searchDB } from '@/database';
+import { db } from '@/database';
 import { ObjectId, WithoutId } from 'mongodb';
 import { ISearchResult } from '@/types/search.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
 import { getNow } from '@/utils';
 import { IContact } from '@/types/contact.types';
 import { IUser } from '@/types/user.types';
-import { IOrg } from '@/types/org.types';
 
 dotenv.config();
 
-const listingsCol = searchDB.collection('SampleListings');
+const listingsCol = db.collection('mlsListings');
 const searchResultsCol = db.collection<WithoutId<ISearchResult>>('searchResults');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 
@@ -53,7 +52,7 @@ export const searchListings = async (req: Request, res: Response) => {
 
     const searchResult = await searchResultsCol.findOne({
       orgId: agentProfile?.orgId || contact?.orgId,
-      queryString: userQuery,
+      userQueryString: userQuery,
     });
     if (searchResult) {
       query = searchResult.queryJSON;
@@ -64,7 +63,68 @@ export const searchListings = async (req: Request, res: Response) => {
           {
             role: 'system',
             content:
-              'You are tasked with translating natural language search queries into NodeJS MongoDB query JSON object format. Just using simple query not mongodb aggregate. This task pertains to a real estate search involving a MongoDB collection with the following attributes:\n     \n- "VIVA_YoungestAgeAllowed": int, representing the minimum age required to live in a property (0 if no age restriction).\n- "LaundryFeatures": array of strings describing laundry facilities.\n- "Flooring": array of strings indicating the types of flooring in the house.   Acceptable values are: Vinyl, Hardwood, Tile, Carpet, Wood, Mixed, Laminate ... the closest matching value, if flooring is specified\n- "FireplacesTotal": int, representing the number of fireplaces in the property.\n- "WaterfrontFeatures": array of strings describing waterfront views.\n- "ViewYN": bool, indicating whether the property has a view.\n- "SeniorCommunityYN": bool, indicating whether the property is part of a seniors community.\n- "Cooling": array of strings indicating cooling equipment such as HVAC or Heat pump.\n- "ExteriorFeatures": array of strings describing exterior features like Garden, Balcony, and Deck.\n- "VIVA_Bath2PieceTotal": int, representing the number of 2-piece bathrooms.\n- "VIVA_Ensuite3PieceTotal": int, representing the number of 3-piece ensuites.\n- "VIVA_BathroomsCountThirdLevel": int, representing the number of bathrooms on the third level.\n- "VIVA_BedroomsCountLowerLevel": int, representing the number of bedrooms on the lower level.\n- "BuildingName": string, providing the name of the building.\n- "AssociationFeeFrequency": string, indicating the frequency of association fees (e.g., \'weekly\' or \'monthly\').\n- "VIVA_Bath4PieceTotal": int, representing the number of 4-piece bathrooms.\n- "HeatingYN": bool, indicating whether the property has heating.\n- "VIVA_ParkingStrataCommonSpaces": int, representing the number of shared parking spaces at the strata.\n- "TaxAnnualAmount": int, representing the yearly property tax amount in CAD.\n- "VIVA_BathroomsCountLowerLevel": int, representing the number of bathrooms on the lower level.\n- "CountyOrParish": string, specifying the county or parish of the unit.\n- "PropertyType": string, indicating whether the property is \'residential\' or \'commercial\' ... not to be confused with PropertySubType which distinguished between houses, condos/apartments, land etc\n- "BathroomsTotalDecimal": decimal, representing the total number of bathrooms (e.g., 2.5 for 2 full bathrooms and 1 half bath).\n- "AssociationYN": bool, indicating whether the unit is part of a strata association.\n- "VIVA_SmokingBylaw": bool, indicating the presence of smoking rules.\n- "VIVA_LivingAreaLower": int, representing the square feet of living space in the lower area.\n- "AttachedGarageYN": bool, indicating the presence of an attached garage.\n- "VIVA_LivingAreaMain": int, representing the square feet of the main floor\'s living area.\n- "Roof": array of strings describing roofing materials (e.g., asphalt or metal).\n- "ParkingTotal": int, representing the number of parking spaces associated with the unit.\n- "VIVA_LivingAreaOther": int, representing the square feet of any other living areas on the parcel.\n- "VIVA_UnfinishedAreaTotal": int, representing the square feet of unfinished area on the parcel.\n- "PropertySubType": string, specifying the property subtype (e.g., \'Single Family Detached\').\n- "WaterfrontYN": bool, indicating whether the property is waterfront.\n- "LotSizeAcres": decimal, representing the property size in acres.\n- "WaterSource": array of strings describing water sources (e.g., \'Well: Drilled\').\n- "VIVA_KitchensCountSecondLevel": int, representing the number of kitchens on the second level.\n- "YearBuilt": int, indicating the year the unit was built (e.g., 1993).\n- "ElectricOnPropertyYN": bool, indicating whether the unit has electrical service.\n- "VIVA_BedroomsCountOtherLevel": int, representing the number of bedrooms on additional levels not covered by other fields.\n- "PetsAllowed": array of strings specifying types of pets allowed (e.g., Aquariums, Birds, Cats OK, Dogs OK).\n- "OtherStructures": array of strings describing other structures on the property (e.g., \'storage shed\').\n- "LivingArea": int, representing the total square feet of living area.\n- "TaxAssessedValue": int, representing the CAD value of the yearly tax assessment.\n- "ParkingFeatures": array of strings describing parking features (e.g., Garage, Garage Double).\n- "Heating": array of strings indicating types of heating (e.g., Electric, Forced Air).\n- "VIVA_BedroomsCountSecondLevel": int, representing the number of bedrooms on the second level.\n- "BathroomsTotalInteger": int, representing the total number of bathrooms.\n- "City": string, specifying the city. Known cities: Saanich, Victoria, Lasqueti Island, Duncan, Port Renfrew, Black Creek, Galiano Island, Salt Spring, Ucluelet, Langford, Ladysmith, View Royal, Parksville, Port Alberni, Nanaimo, Esquimalt, Quadra Island, Sidney, Sooke, Comox ... if they enter another location, try searching for it in PublicRemarks, PrivateRemarks and Unparsed address too. For example a search for \'Calgary\' would be \'$or\':[\'City\':\'Calgary\',\'PublicRemarks\':[\'$regex\':\'Calgary\',$options:i],\'PublicRemarks\':[\'$regex\':\'Calgary\',$options:i],\'UnparsedAddress\':[\'$regex\':\'Calgary\',$options:i]]\n- "DirectionFaces": string, indicating the direction the unit faces (e.g., North, South, East, West).\n- "VIVA_BedAndBreakfast": bool, indicating whether the unit is a bed and breakfast.\n- "ConstructionMaterials": array of strings describing construction materials (e.g., wood).\n- "PrivateRemarks": text, providing text entered by the listing agent (useful for keyword searches).\n- "OtherEquipment": array of strings specifying other equipment on the property (e.g., central vacuum, electric garage door opener).\n- "BedroomsTotal": int, representing the total number of bedrooms.\n- "VIVA_AssociationFeeYear": int, representing the total CAD of each strata/association fee charge (charged at AssociationFeeFrequency).\n- "VIVA_Bath3PieceTotal": int, representing the number of 3-piece bathrooms.\n- "CoolingYN": bool, indicating whether the unit has a cooling system.\n- "CarportSpaces": int, representing the number of parking spaces in a carport.\n- "VIVA_BedroomsOrDensTotal": int, representing the total number of bedrooms or dens.\n- "VIVA_Ensuite2PieceTotal": int, representing the number of 2-piece ensuites.\n- "GarageYN": bool, indicating whether the parcel has a garage.\n- "VIVA_BathroomsCountSecondLevel": int, representing the number of bathrooms on the second level.\n- "Longitude": float, representing the longitude.\n- "CarportYN": bool, indicating whether there is a carport.\n- "PublicRemarks": text, providing a public description (useful for keyword searches).\n- "Basement": array of strings specifying basement details (may contain \'none\' if no basement).\n- "Latitude": float, representing the latitude.\n- "ListPrice": int, representing the price in CAD of the property.\n- "StateOrProvince": string, indicating the state or province (usually abbreviated, e.g., BC for British Columbia).\n- "VIVA_BasementHeightFeet": int, sometimes populated with the height of the basement in feet.\n- "VIVA_Bath5PieceTotal": int, representing the number of 5-piece bathrooms.\n- "FireplaceYN": bool, indicating whether there is at least 1 fireplace.\n- "VIVA_Ensuite4PieceTotal": int, representing the number of 4-piece ensuites.\n- "MainLevelBathrooms": int, representing the number of bathrooms on the main level.\n- "FoundationDetails": array of keywords about the foundation (e.g., concrete perimeter, slab).\n- "HomeWarrantyYN": bool, indicating whether the home comes with a warranty.\n- "InteriorFeatures": array of keywords describing inner features of the property (e.g., vaulted ceiling(s)).\n- "VIVA_RentalAllowed": string, describing rental permissions (e.g., \'Unrestricted\' for properties that can be rented out).\n- "Coordinates": [latitude, longitude], representing coordinates as latitude and longitude.\n- "Country": string, specifying the country (e.g., US or CA for the United States and Canada).\n- "VIVA_BasementHeightInches": int, sometimes populated with basement height in inches.\n- "VIVA_KitchensTotal": int, representing the total number of kitchens.\n- "VIVA_RoomCount": int, representing the total number of rooms.\n- "BathroomsHalf": int, representing the number of half bathrooms.\n- "VIVA_BBQsAllowedYN": bool, indicating whether barbecues are allowed.\n- "Sewer": array of keywords describing sewer systems (e.g., Holding Tank, Septic System).\n- "MainLevelBedrooms": int, representing the number of bedrooms on the main level.\n- "Utilities": array of strings providing details about utilities (e.g., Electricity Connected).\n- "VIVA_Layout": string, sometimes populated with a description of how the place is laid out.\n- "NumberOfBuildings": int, representing the number of buildings on the property.\n- "GarageSpaces": int, representing the number of parking spaces in the garage.\n- "Ownership": string, specifying ownership type (e.g., freehold or strata).\n- "LotFeatures": array of useful description keywords about the lot (e.g., acreage, no through road, private, quiet area, serviced, southern exposure, walk-on waterfront).\n- "PostalCode": string, specifying the postal code.\n- "LotSizeSquareFeet": decimal, representing lot size in square feet.\n- "ArchitecturalStyle": array of descriptive strings about the style of the property (e.g., \'west coast\').\n- "VIVA_KitchensCountMainLevel": int, representing the number of kitchens on the main level.\n- "UnparsedAddress": string, providing the address of the unit.\n- "PropertySubType": string,  Will be one of: Multi Family, Business, Office, Single Family Detached, Condo Apartment, Mixed Use, Industrial, Unimproved Land, Retail, Other, Half Duplex, Row/Townhouse, Land .. if someone is looking for a house they want "Single Family Detached" for example.. if they want a condo or apartment they want "Condo Apartment" REMEMBER TO USE THIS FIELD IS SOMEONE SPECIFIED House Land or Condo\n\nWe will filter based on relevant boolean columns, use gt/gte/lt/lte ranges on decimal, integer, and float columns, and perform string searches on other relevant columns. Exclude unrelated columns from the query.\n\nDiscard any parts of the query that are not able to be mapped to the provided collection attributes. \n\nMake sure the response does not contain the variable definition or trailing semicolon. I will be using json_decode to turn your response into the array ill pass to mongo find.\nYour task is to convert the following natural language query into a NodeJS MongoDB query array format.\n\nIf someone enters the name of a city/cities make sure to capitalize them \n\nVERY Important to specify PropertySubType if house or condo is mentioned in the query; house: "Single Family Detached", condo: "Condo Apartment"\n\nMake sure the format can be parsed into an object not an array by nodejs',
+              `
+                You are tasked with translating natural language search queries into Nodejs MongoDB JSON Object format. This task pertains to a real estate search involving a MongoDB collection with the following attributes:
+                'ArchitecturalStyle': 'Bi-level', - string type,  Homebuyers may look for a specific architectural style that suits their taste or family needs.
+                'AttachedGarageYN': true, - boolean type,  Homebuyers often prefer attached garages for direct access to the home and for security reasons.
+                'BathroomsHalf': 1, -  Number of half bathrooms can be a consideration for buyers who entertain guests or have a large family.
+                'BathroomsTotal': 5, -  Total number of bathrooms is a primary search criteria for most buyers.
+                'BedroomsTotal': 6, -  The number of bedrooms is important for the size of the family and the potential for home offices, guest rooms, etc.
+                'BuildingAreaTotal': 1991.4, -  number type, The total square footage of the living area can be a deciding factor based on family size and space requirements.
+                'BuildingAreaUnits': 'square feet', -  string type, The unit of area measurement is relevant to the buyer's understanding based on regional preference.
+                'City': 'High River', -  string type, City location is crucial for proximity to employment, schools, and amenities.
+                'ConstructionMaterials': 'Wood frame', - string type, Buyers interested in construction details may look for specific building materials.
+                'Cooling': 'Central air conditioning', - string type, Cooling systems are essential in certain climates and for personal comfort.
+                'CoolingYN': true, - boolean type, indicate Cooling systems exist or not 
+                'Country': 'Canada', -  The country can be used to narrow down searches geographically at a high level.
+                'CoveredSpaces': 2, -  The number of covered parking spaces can be a deciding factor for buyers with multiple vehicles or those who need protected storage space.
+                'Fencing': 'Fence', -  Fencing is important for buyers with pets, children, or privacy concerns.
+                'FireplacesTotal': 2, - number type, Fireplaces can be a desirable feature for aesthetic or heating purposes.
+                'Flooring': 'Carpeted,Laminate', - string type, Flooring types can influence a buyer's decision based on allergies, maintenance, or personal preference.
+                'GarageSpaces': 2, -  The number of garage spaces is often specified in buyer searches.
+                'Heating': 'Forced air,', -  Heating type can affect a buyer's decision based on comfort, efficiency, and fuel type.
+                'HeatingFuel': 'Natural gas', - string type, The type of heating fuel is important for cost considerations and personal preference.
+                'ListingId': 'A1107611', -  The listing ID is used to reference the specific property listing.
+                'ListPrice': 599995.00, - number type, List price is one of the most significant factors in a property search.
+                'LotSizeArea': 563.6, - number type, The lot size area can determine the amount of outdoor space and is important for gardening, entertainment, and expansion possibilities.
+                'LotSizeUnits': 'square meters', - string type, Units of lot size measurement can vary by region and buyer preference.
+                'PhotosCount': 50, -  The number of photos available can be important for remote buyers or those who wish to preview the property online before visiting.
+                'PostalCode': 'T1V0E2', - string type, The postal code is often used to search within a specific area.
+                'PropertyType': 'Single Family', - string type, Property type is used to filter searches to the kind of property a buyer is interested in (e.g., single-family homes, condos).
+                'PublicRemarks': 'Description', - string type, Detailed description of the property provides insight into features not captured by other data fields.
+                'StateOrProvince': 'Alberta', - string type, State or province information is used for regional searches within a country.
+                'StreetName': 'High Country', - string type, Street name is part of the address used to identify the property's location.
+                'StreetNumber': '2025', - string type, Street number is the specific identifier for the property's location on its street.
+                'UnparsedAddress': '2025 High Country Rise NW', - string type, Full address in one line, often used for easy reference or input into mapping software.
+                'YearBuilt': 2015, - number type, The year the property was built is important for buyers looking for newer homes with modern amenities.
+                'Zoning': '' - string type, Zoning information can influence a buyer's decision based on intended use or future development potential.
+            
+                These are the possible values of PropertyType:
+                'Single Family','Business','Agriculture','Industrial','Other','Office','Institutional - Special Purpose','Hospitality','Vacant Land','Retail','Multi-family','Parking','Recreational'
+                
+                These are the possible values of OwnershipType:
+                'Strata','Condominium','Leasehold','Other, See Remarks','Cooperative','Timeshare/Fractional','Shares in Co-operative','Life Lease','Leasehold Condo/Strata','Leasehold Condo/Strata','Freehold','Condominium/Strata','Undivided Co-ownership','Unknown'
+                
+                These are the possible values of Cooling:
+                null, 'Heat Pump,Air exchanger', 'Air Conditioned,Heat Pump', 'Wall unit,Window air conditioner', 'Partially air conditioned', 'Window air conditioner', 'Fully air conditioned', 'Central air conditioning', 'Central air conditioning,Fully air conditioned', 'Air exchanger', 'Central air conditioning,Heat Pump', 'Wall unit,Air exchanger', 'Air Conditioned,Fully air conditioned', 'Ductless', 'Ductless,Wall unit', 'See Remarks', 'Wall unit', 'None', 'Central air conditioning,Ductless', 'Heat Pump', 'Wall unit,Heat Pump', 'Central air conditioning,Air exchanger', 'Air exchanger,Central air conditioning', 'Air Conditioned'
+                
+                These are the possible values of BuildingAreaUnits:
+                null, 'square meters', 'acres', 'square feet'
+                
+                These are the possible values of Fencing:
+                null, 'Not fenced', 'Fenced yard,Other', 'Cross fenced,Fence', 'Fenced yard', 'Fence,Partially fenced', 'Cross fenced', 'Cross fenced,Fence,Partially fenced', 'Partially fenced', 'Fence'
+                
+                These are the possile values of LotSizeUnits:
+                null, 'square meters', 'acres', 'hectares', 'square feet'
+                
+                These are the possible values of Zoning:
+                null, 'Multi-Family', 'Rural residential', 'Country residential', 'Industrial Strata', 'Residential/Commercial', 'Recreational', 'Residential medium density', 'Condominium Strata', 'Residential low density', 'Single family dwelling', 'Multiple unit dwelling', 'Commercial', 'Duplex', 'Residential', 'Convenience commercial', 'Single detached residential', 'Agricultural', 'Mobile home', 'Highway commercial', 'Other', 'Unknown'
+                
+                Make sure the response does not contain the variable definition or trailing semicolon. I will be using json_decode to turn your response into the Json Object to pass to mongo find.
+                Your task is to convert the following natural language query into a Javascrit MongoDB query JSON Object Format.
+                
+                Make sure it the format can be parsed into a Json Object by Node.js JSON.parse function
+              `
           },
           { role: 'user', content: userQuery },
         ],
@@ -86,7 +146,7 @@ export const searchListings = async (req: Request, res: Response) => {
     const results = await listingsCol.find(query).limit(16).toArray();
 
     const data = {
-      queryString: userQuery as string,
+      userQueryString: userQuery as string,
       queryJSON: query,
       orgId: (agentProfile?.orgId || contact?.orgId) as ObjectId,
       username: user.username,
