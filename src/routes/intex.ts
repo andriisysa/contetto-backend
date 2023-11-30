@@ -3,7 +3,7 @@ import authRouter from './authRouter';
 import auth from '@/middlewares/auth';
 import orgsRouter from './orgs';
 import agentsRouter from './agents';
-import { getAllCities, searchCitites } from '@/controllers/citites';
+import citiesRouter from './cities';
 
 const router = express.Router();
 
@@ -14,7 +14,6 @@ router
   .use('/auth', authRouter)
   .use('/orgs', auth, orgsRouter)
   .use('/agents', auth, agentsRouter)
-  .use('/cities', getAllCities)
-  .use('/cities/search', auth, searchCitites);
+  .use('/cities', auth, citiesRouter);
 
 export default router;

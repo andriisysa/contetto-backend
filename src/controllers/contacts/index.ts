@@ -152,7 +152,7 @@ export const deleteContact = async (req: Request, res: Response) => {
     await searchResultsCol.updateMany(
       {
         orgId: contact.orgId,
-        agentProfileId: contact.agentProfileId,
+        // agentProfileId: contact.agentProfileId,
         contactId: contact._id,
       },
       {
