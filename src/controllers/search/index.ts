@@ -17,6 +17,9 @@ const searchResultsCol = db.collection<WithoutId<ISearchResult>>('searchResults'
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 const citiesCol = db.collection<WithoutId<ICity>>('cities');
 
+const SERACH_LIMIT = 12;
+const MAX_RANGE = 100;
+
 const processValue = (apiResponseData: any, userQuery: any) => {
   let value = apiResponseData.choices && apiResponseData.choices[0].message.content;
   value = value.trim();
@@ -161,13 +164,14 @@ export const searchListings = async (req: Request, res: Response) => {
       query.location = {
         $nearSphere: {
           $geometry: { type: 'Point', coordinates: [city.lng, city.lat] },
-          $maxDistance: Number(range) * 1000,
+          $maxDistance: (Number(range) > MAX_RANGE ? MAX_RANGE : Number(range)) * 1000,
         },
       };
     }
 
     console.log('query ===>', query);
-    const results = await listingsCol.find(query).limit(16).toArray();
+    const results = await listingsCol.find(query).limit(SERACH_LIMIT).toArray();
+    const total = await listingsCol.find(query).count();
 
     const data: WithoutId<ISearchResult> = {
       userQueryString: userQuery as string,
@@ -195,6 +199,7 @@ export const searchListings = async (req: Request, res: Response) => {
     return res.json({
       properties: results,
       searchResult: { ...data, _id: newResult.insertedId, agentProfile: req.agentProfile, constact: req.contact },
+      total,
     });
   } catch (error) {
     console.log('searchListings error ===>', error);
@@ -355,11 +360,21 @@ export const getContactSearchResults = async (req: Request, res: Response) => {
 
 export const getSearchProperties = async (req: Request, res: Response) => {
   try {
+    const { page = '0' } = req.query;
+
     const searchResult = req.searchResult as ISearchResult;
 
-    const results = await listingsCol.find(searchResult.queryJSON).limit(16).toArray();
+    const results = await listingsCol
+      .find(searchResult.queryJSON)
+      .skip(Number(page) * SERACH_LIMIT)
+      .limit(SERACH_LIMIT)
+      .toArray();
+    const rejects = await listingsCol.find({ _id: { $in: searchResult.rejects } }).toArray();
+    const shortlists = await listingsCol.find({ _id: { $in: searchResult.shortlists } }).toArray();
+    const total = await listingsCol.find(searchResult.queryJSON).count();
+    console.log('total ===>', total);
 
-    return res.json({ properties: results, searchResult });
+    return res.json({ properties: results, searchResult, rejects, shortlists, total });
   } catch (error) {
     console.log('getSearchProperties error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
