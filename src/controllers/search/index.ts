@@ -34,10 +34,6 @@ const processValue = (apiResponseData: any, userQuery: any) => {
     value = value.reduce((sum, cur) => ({ ...sum, ...cur }), {});
   }
 
-  if (userQuery.includes('house') && !Object.keys(value).find((v) => v === 'PropertySubType')) {
-    value.push({ PropertySubType: 'Single Family Detached' });
-  }
-
   return value;
 };
 
@@ -59,6 +55,7 @@ export const searchListings = async (req: Request, res: Response) => {
       const searchResult = await searchResultsCol.findOne({
         orgId: agentProfile?.orgId || contact?.orgId,
         userQueryString: userQuery,
+        gptValid: true,
       });
 
       if (searchResult) {
@@ -97,7 +94,9 @@ export const searchListings = async (req: Request, res: Response) => {
                   'LotSizeUnits': 'square meters', - string type, Units of lot size measurement can vary by region and buyer preference.
                   'PhotosCount': 50, -  The number of photos available can be important for remote buyers or those who wish to preview the property online before visiting.
                   'PostalCode': 'T1V0E2', - string type, The postal code is often used to search within a specific area.
-                  'PropertyType': 'Single Family', - string type, Property type is used to filter searches to the kind of property a buyer is interested in (e.g., single-family homes, condos).
+                  'OwnershipType': 'Condominium', - string type, OwnershipType is used to filter searches to the kind of property a buyer is interested in (e.g., "strata", "house", "condo"),
+                          OwnershipType is important for property filter. if search string contains "strata" or "condo" find where OwnershipType IN ['Strata','Condominium','Condominium/Strata', 'Leasehold Condo/Strata','Leasehold Condo/Strata']
+                          if search string  contains "house" find where OwnershipType: "Freehold"
                   'PublicRemarks': 'Description', - string type, Detailed description of the property provides insight into features not captured by other data fields.
                   'StateOrProvince': 'Alberta', - string type, State or province information is used for regional searches within a country.
                   'StreetName': 'High Country', - string type, Street name is part of the address used to identify the property's location.
@@ -105,9 +104,6 @@ export const searchListings = async (req: Request, res: Response) => {
                   'UnparsedAddress': '2025 High Country Rise NW', - string type, Full address in one line, often used for easy reference or input into mapping software.
                   'YearBuilt': 2015, - number type, The year the property was built is important for buyers looking for newer homes with modern amenities.
                   'Zoning': '' - string type, Zoning information can influence a buyer's decision based on intended use or future development potential.
-              
-                  These are the possible values of PropertyType:
-                  'Single Family','Business','Agriculture','Industrial','Other','Office','Institutional - Special Purpose','Hospitality','Vacant Land','Retail','Multi-family','Parking','Recreational'
                   
                   These are the possible values of OwnershipType:
                   'Strata','Condominium','Leasehold','Other, See Remarks','Cooperative','Timeshare/Fractional','Shares in Co-operative','Life Lease','Leasehold Condo/Strata','Leasehold Condo/Strata','Freehold','Condominium/Strata','Undivided Co-ownership','Unknown'
@@ -126,6 +122,8 @@ export const searchListings = async (req: Request, res: Response) => {
                   
                   These are the possible values of Zoning:
                   null, 'Multi-Family', 'Rural residential', 'Country residential', 'Industrial Strata', 'Residential/Commercial', 'Recreational', 'Residential medium density', 'Condominium Strata', 'Residential low density', 'Single family dwelling', 'Multiple unit dwelling', 'Commercial', 'Duplex', 'Residential', 'Convenience commercial', 'Single detached residential', 'Agricultural', 'Mobile home', 'Highway commercial', 'Other', 'Unknown'
+
+                  Make sure the response does not contain PropertyType, it should be OwnershipType
                   
                   Make sure the response does not contain the variable definition or trailing semicolon. I will be using json_decode to turn your response into the Json Object to pass to mongo find.
                   Your task is to convert the following natural language query into a Javascrit MongoDB query JSON Object Format.
@@ -136,6 +134,10 @@ export const searchListings = async (req: Request, res: Response) => {
             { role: 'user', content: userQuery },
           ],
         };
+
+        // 'PropertyType': 'Single Family', - string type, Property type is used to filter searches to the kind of property a buyer is interested in (e.g., single-family homes, condos).
+        // These are the possible values of PropertyType:
+        // 'Single Family','Business','Agriculture','Industrial','Other','Office','Institutional - Special Purpose','Hospitality','Vacant Land','Retail','Multi-family','Parking','Recreational'
 
         const apiEndpoint = 'https://api.openai.com/v1/chat/completions';
 
@@ -193,6 +195,7 @@ export const searchListings = async (req: Request, res: Response) => {
       shortlists: [],
       newListings: [],
       timestamp: getNow(),
+      gptValid: true,
     };
 
     const newResult = await searchResultsCol.insertOne(data);

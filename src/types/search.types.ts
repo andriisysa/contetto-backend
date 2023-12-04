@@ -22,4 +22,5 @@ export interface ISearchResult {
   shortlists: ObjectId[]; // properties that were liked from this search results
   newListings: ObjectId[]; // properties that the cron discovered we want to show the user quickly when they click a push notification/email link
   timestamp: number;
+  gptValid: boolean;
 }
