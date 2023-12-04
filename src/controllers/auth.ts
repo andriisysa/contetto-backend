@@ -91,8 +91,6 @@ export const confirmEmail = async (req: Request, res: Response) => {
       const orgData: WithoutId<IOrg> = {
         name: `${user.username}'s personal org`,
         owner: user.username,
-        primaryColor: '',
-        secondaryColor: '',
         logoUrl: '',
         mlsFeeds: [],
         deleted: false,

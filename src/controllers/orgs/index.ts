@@ -10,6 +10,8 @@ import { IUser } from '@/types/user.types';
 import { AgentRole, IAgentProfile, roleOrder } from '@/types/agentProfile.types';
 import { IInvite } from '@/types/invite.types';
 import { IContact } from '@/types/contact.types';
+import { getImageExtension } from '@/utils/extension';
+import { uploadBase64ToS3 } from '@/utils/s3';
 
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
 const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles');
@@ -35,13 +37,26 @@ export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
 export const create = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
-    const { name, primaryColor, secondaryColor, logoUrl, mlsFeeds = [] } = req.body;
+    let { name, logoUrl, logoFileType, mlsFeeds = [] } = req.body;
+
+    if (logoUrl && logoFileType) {
+      const imageExtension = getImageExtension(logoFileType);
+      if (!imageExtension) {
+        return res.status(400).json({ msg: 'Invalid image type' });
+      }
+
+      logoUrl = await uploadBase64ToS3(
+        'ava-org-logos',
+        String(name).split(' ')[0],
+        logoUrl,
+        logoFileType,
+        imageExtension
+      );
+    }
 
     const orgData: WithoutId<IOrg> = {
       name,
       owner: user.username,
-      primaryColor,
-      secondaryColor,
       logoUrl,
       mlsFeeds,
       deleted: false,
@@ -60,11 +75,26 @@ export const update = async (req: Request, res: Response) => {
   try {
     const { id: orgId } = req.params;
 
-    const { name, primaryColor, secondaryColor, logoUrl, mlsFeeds = [] } = req.body;
-
     const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
     if (!org) {
       return res.status(400).json({ msg: 'Organization does not exist' });
+    }
+
+    let { name, logoUrl, logoFileType, mlsFeeds = [] } = req.body;
+
+    if (logoUrl && logoFileType) {
+      const imageExtension = getImageExtension(logoFileType);
+      if (!imageExtension) {
+        return res.status(400).json({ msg: 'Invalid image type' });
+      }
+
+      logoUrl = await uploadBase64ToS3(
+        'ava-org-logos',
+        String(name).split(' ')[0],
+        logoUrl,
+        logoFileType,
+        imageExtension
+      );
     }
 
     await orgsCol.updateOne(
@@ -72,8 +102,6 @@ export const update = async (req: Request, res: Response) => {
       {
         $set: {
           name,
-          primaryColor,
-          secondaryColor,
           logoUrl,
           mlsFeeds,
         },

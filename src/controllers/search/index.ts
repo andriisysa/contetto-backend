@@ -70,7 +70,8 @@ export const searchListings = async (req: Request, res: Response) => {
             {
               role: 'system',
               content: `
-                  You are tasked with translating natural language search queries into Nodejs MongoDB JSON Object format. This task pertains to a real estate search involving a MongoDB collection with the following attributes:
+                  You are tasked with translating natural language search queries into Nodejs MongoDB JSON Object format. Just using simple query not mongodb aggregate.
+                  This task pertains to a real estate search involving a MongoDB collection with the following attributes:
                   'ArchitecturalStyle': 'Bi-level', - string type,  Homebuyers may look for a specific architectural style that suits their taste or family needs.
                   'AttachedGarageYN': true, - boolean type,  Homebuyers often prefer attached garages for direct access to the home and for security reasons.
                   'BathroomsHalf': 1, -  Number of half bathrooms can be a consideration for buyers who entertain guests or have a large family.
