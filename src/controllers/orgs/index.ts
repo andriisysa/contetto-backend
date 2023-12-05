@@ -37,7 +37,7 @@ export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
 export const create = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
-    let { name, logoUrl, logoFileType, mlsFeeds = [] } = req.body;
+    let { name, logoUrl = '', logoFileType, mlsFeeds = [] } = req.body;
 
     if (logoUrl && logoFileType) {
       const imageExtension = getImageExtension(logoFileType);
@@ -80,7 +80,15 @@ export const update = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Organization does not exist' });
     }
 
-    let { name, logoUrl, logoFileType, mlsFeeds = [] } = req.body;
+    let {
+      name,
+      logoUrl,
+      logoFileType,
+      sidebarFontColor = '',
+      sidebarBgColor = '',
+      fontFamily = '',
+      mlsFeeds = [],
+    } = req.body;
 
     if (logoUrl && logoFileType) {
       const imageExtension = getImageExtension(logoFileType);
@@ -103,6 +111,9 @@ export const update = async (req: Request, res: Response) => {
         $set: {
           name,
           logoUrl,
+          sidebarFontColor,
+          sidebarBgColor,
+          fontFamily,
           mlsFeeds,
         },
       }
