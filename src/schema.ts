@@ -35,6 +35,7 @@ export const orgSchema = {
 
 export const contactSchema = {
   create: [body('name').isString().withMessage('Contact name is required!')],
+  note: [body('note').isString().withMessage('Contact name is required!')],
   bind: [body('inviteCode').isString().withMessage('inviteCode is required!')],
   search: [body('name').isString().withMessage('Contact name is required!')],
 };

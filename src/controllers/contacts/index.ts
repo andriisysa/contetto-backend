@@ -101,14 +101,6 @@ export const getContact = async (req: Request, res: Response) => {
           },
         },
         {
-          $lookup: {
-            from: 'contactNotes',
-            localField: '_id',
-            foreignField: 'contactId',
-            as: 'notes',
-          },
-        },
-        {
           $unwind: {
             path: '$org',
           },
@@ -130,7 +122,7 @@ export const getContact = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'No contact found' });
     }
 
-    return res.json({ ...contact, notes: user.username === contact.agentName ? contact.notes : [] });
+    return res.json(contact);
   } catch (error) {
     console.log('getContact error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -325,6 +317,79 @@ export const searchContacts = async (req: Request, res: Response) => {
     return res.json(contacts);
   } catch (error) {
     console.log('searchContacts error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const createNote = async (req: Request, res: Response) => {
+  try {
+    const { contactId } = req.params;
+    const { note } = req.body;
+
+    await contactNotesCol.insertOne({
+      note,
+      contactId: new ObjectId(contactId),
+      timestamp: getNow(),
+    });
+
+    return res.json({ msg: 'Created a note' });
+  } catch (error) {
+    console.log('createNote error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const updateNote = async (req: Request, res: Response) => {
+  try {
+    const { contactId, noteId } = req.params;
+    const { note } = req.body;
+
+    const existing = await contactNotesCol.findOne({ _id: new ObjectId(noteId), contactId: new ObjectId(contactId) });
+    if (!existing) {
+      return res.status(404).json({ msg: 'Note not found' });
+    }
+
+    await contactNotesCol.updateOne(
+      { _id: new ObjectId(noteId), contactId: new ObjectId(contactId) },
+      { $set: { note, timestamp: getNow() } }
+    );
+    return res.json({ msg: 'Updated' });
+  } catch (error) {
+    console.log('updateNote error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const getNotes = async (req: Request, res: Response) => {
+  try {
+    const { contactId } = req.params;
+
+    const notes = await contactNotesCol
+      .find({ contactId: new ObjectId(contactId) })
+      .sort({ timestamp: -1 })
+      .toArray();
+
+    return res.json(notes);
+  } catch (error) {
+    console.log('getNotes error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const deleteNote = async (req: Request, res: Response) => {
+  try {
+    const { contactId, noteId } = req.params;
+
+    const existing = await contactNotesCol.findOne({ _id: new ObjectId(noteId), contactId: new ObjectId(contactId) });
+    if (!existing) {
+      return res.status(404).json({ msg: 'Note not found' });
+    }
+
+    await contactNotesCol.deleteOne({ _id: new ObjectId(noteId), contactId: new ObjectId(contactId) });
+
+    return res.json({ msg: 'Deleted' });
+  } catch (error) {
+    console.log('getNotes error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };

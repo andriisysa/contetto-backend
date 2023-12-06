@@ -19,12 +19,16 @@ import { AgentRole } from '@/types/agentProfile.types';
 import {
   bindContact,
   createContact,
+  createNote,
   deleteContact,
+  deleteNote,
   getContact,
+  getNotes,
   myContacts,
   searchContacts,
   shareContact,
   updateContact,
+  updateNote,
 } from '@/controllers/contacts';
 import {
   deleteSearchResult,
@@ -67,6 +71,12 @@ orgsRouter
   .delete('/:id/contacts/:contactId', orgRoleAuth(AgentRole.agent), deleteContact)
   .post('/:id/contacts/:contactId/share', orgRoleAuth(AgentRole.agent), shareContact)
   .post('/:id/contacts/:contactId/bind', validate(contactSchema.bind), bindContact)
+
+  // contact notes
+  .get('/:id/contacts/:contactId/notes', orgRoleAuth(AgentRole.agent), getNotes)
+  .post('/:id/contacts/:contactId/notes', validate(contactSchema.note), orgRoleAuth(AgentRole.agent), createNote)
+  .put('/:id/contacts/:contactId/notes/:noteId', validate(contactSchema.note), orgRoleAuth(AgentRole.agent), updateNote)
+  .delete('/:id/contacts/:contactId/notes/:noteId', orgRoleAuth(AgentRole.agent), deleteNote)
 
   // search
   .get('/:id/search', searchAuth, searchListings)

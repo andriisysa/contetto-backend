@@ -1,6 +1,3 @@
-// file upload
-// time check
-
 import express from 'express';
 
 import { getOne } from '@/controllers/agents';
