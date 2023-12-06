@@ -5,22 +5,36 @@ import { db } from '@/database';
 
 import { IUser } from '@/types/user.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
-import { IContact } from '@/types/contact.types';
+import { IContact, IContactNote } from '@/types/contact.types';
 import { getNow, getRandomString } from '@/utils';
 import { ISearchResult } from '@/types/search.types';
+import { getImageExtension } from '@/utils/extension';
+import { uploadBase64ToS3 } from '@/utils/s3';
 
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
+const contactNotesCol = db.collection<WithoutId<IContactNote>>('contactNotes');
 const searchResultsCol = db.collection<WithoutId<ISearchResult>>('searchResults');
 
 export const createContact = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile as IAgentProfile;
 
-    const { name, note = '' } = req.body;
+    let { name, email, phone, image, imageFileType, note = '' } = req.body;
+
+    if (image && imageFileType) {
+      const imageExtension = getImageExtension(imageFileType);
+      if (!imageExtension) {
+        return res.status(400).json({ msg: 'Invalid image type' });
+      }
+
+      image = await uploadBase64ToS3('contacts', String(name).split(' ')[0], image, imageFileType, imageExtension);
+    }
 
     const data: WithoutId<IContact> = {
       name,
-      note,
+      email,
+      phone,
+      image,
       orgId: agentProfile.orgId,
       agentProfileId: agentProfile._id,
       agentName: agentProfile.username,
@@ -29,6 +43,14 @@ export const createContact = async (req: Request, res: Response) => {
     };
 
     const newContact = await contactsCol.insertOne(data);
+
+    if (note) {
+      await contactNotesCol.insertOne({
+        contactId: newContact.insertedId,
+        note,
+        timestamp: getNow(),
+      });
+    }
 
     return res.json({ ...data, _id: newContact.insertedId });
   } catch (error) {
@@ -79,6 +101,14 @@ export const getContact = async (req: Request, res: Response) => {
           },
         },
         {
+          $lookup: {
+            from: 'contactNotes',
+            localField: '_id',
+            foreignField: 'contactId',
+            as: 'notes',
+          },
+        },
+        {
           $unwind: {
             path: '$org',
           },
@@ -100,7 +130,7 @@ export const getContact = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'No contact found' });
     }
 
-    return res.json({ ...contact, note: user.username === contact.agentName ? contact.note : '' });
+    return res.json({ ...contact, notes: user.username === contact.agentName ? contact.notes : [] });
   } catch (error) {
     console.log('getContact error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -111,7 +141,16 @@ export const updateContact = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile as IAgentProfile;
     const { contactId } = req.params;
-    const { name, note = '' } = req.body;
+    let { name, email, phone, image, imageFileType } = req.body;
+
+    if (image && imageFileType) {
+      const imageExtension = getImageExtension(imageFileType);
+      if (!imageExtension) {
+        return res.status(400).json({ msg: 'Invalid image type' });
+      }
+
+      image = await uploadBase64ToS3('contacts', String(name).split(' ')[0], image, imageFileType, imageExtension);
+    }
 
     const contact = await contactsCol.findOne({
       _id: new ObjectId(contactId),
@@ -123,7 +162,9 @@ export const updateContact = async (req: Request, res: Response) => {
 
     const data: Partial<IContact> = {
       name,
-      note,
+      email,
+      phone,
+      image,
     };
 
     await contactsCol.updateOne({ _id: contact._id }, { $set: data });
@@ -149,6 +190,7 @@ export const deleteContact = async (req: Request, res: Response) => {
     }
 
     await contactsCol.deleteOne({ _id: contact._id });
+    await contactNotesCol.deleteMany({ contactId: contact._id });
     await searchResultsCol.updateMany(
       {
         orgId: contact.orgId,
@@ -234,8 +276,12 @@ export const bindContact = async (req: Request, res: Response) => {
       {
         $set: {
           username: user.username,
-          email: user.emails[0].email,
-          phone: user.phones ? user.phones[0].phone : undefined,
+          userEmail: user.emails[0].email,
+          userPhone: user.phones ? user.phones[0].phone : undefined,
+          userImage: user.image,
+          email: contact.email || user.emails[0].email,
+          phone: contact.phone || (user.phones ? user.phones[0].phone : undefined),
+          image: contact.image || user.image,
         },
       }
     );
