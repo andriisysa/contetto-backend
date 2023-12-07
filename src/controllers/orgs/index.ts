@@ -417,7 +417,7 @@ export const setWhiteLabel = async (req: Request, res: Response) => {
       }
     );
 
-    return res.json({ msg: 'Updated!' });
+    return res.json({ msg: 'white label is updated!' });
   } catch (error) {
     console.log('org update error ===>', error);
     return res.status(500).json({ msg: 'Organization update error' });
