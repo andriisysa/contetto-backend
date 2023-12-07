@@ -5,7 +5,7 @@ import { db } from '@/database';
 
 import { getNow, getRandomString } from '@/utils';
 import { sendEmail } from '@/utils/email';
-import { IOrg } from '@/types/org.types';
+import { DefaultAvaOrgTheme, IOrg } from '@/types/org.types';
 import { IUser } from '@/types/user.types';
 import { AgentRole, IAgentProfile, roleOrder } from '@/types/agentProfile.types';
 import { IInvite } from '@/types/invite.types';
@@ -74,15 +74,7 @@ export const update = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Organization does not exist' });
     }
 
-    let {
-      name,
-      logoUrl,
-      logoFileType,
-      sidebarFontColor = '',
-      sidebarBgColor = '',
-      fontFamily = '',
-      mlsFeeds = [],
-    } = req.body;
+    let { name, logoUrl, logoFileType, mlsFeeds = [] } = req.body;
 
     if (logoUrl && logoFileType) {
       const imageExtension = getImageExtension(logoFileType);
@@ -99,9 +91,6 @@ export const update = async (req: Request, res: Response) => {
         $set: {
           name,
           logoUrl,
-          sidebarFontColor,
-          sidebarBgColor,
-          fontFamily,
           mlsFeeds,
         },
       }
@@ -396,5 +385,41 @@ export const leaveOrg = async (req: Request, res: Response) => {
   } catch (error) {
     console.log('leaveOrg error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const setWhiteLabel = async (req: Request, res: Response) => {
+  try {
+    const { id: orgId } = req.params;
+
+    const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
+    if (!org) {
+      return res.status(400).json({ msg: 'Organization does not exist' });
+    }
+
+    const { title, primary, secondary, background, fontFamily, description } = req.body;
+
+    const whiteLabel: DefaultAvaOrgTheme = {
+      title,
+      primary,
+      secondary,
+      background,
+      fontFamily,
+      description,
+    };
+
+    await orgsCol.updateOne(
+      { _id: org._id },
+      {
+        $set: {
+          whiteLabel,
+        },
+      }
+    );
+
+    return res.json({ msg: 'Updated!' });
+  } catch (error) {
+    console.log('org update error ===>', error);
+    return res.status(500).json({ msg: 'Organization update error' });
   }
 };

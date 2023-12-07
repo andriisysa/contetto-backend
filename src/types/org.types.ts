@@ -10,15 +10,22 @@ export interface IMLSFeed {
   api_secret: string;
 }
 
+export interface DefaultAvaOrgTheme {
+  title: string
+  primary: string
+  secondary: string
+  background: string
+  fontFamily: string
+  description: string
+}
+
 export interface IOrg {
   _id: ObjectId;
   name: string;
   owner: string; // username
-  sidebarFontColor?: string;
-  sidebarBgColor?: string;
-  fontFamily?: string;
   logoUrl?: string;
   mlsFeeds?: IMLSFeed[];
   deleted: boolean;
   deletedAt?: number;
+  whiteLabel?: DefaultAvaOrgTheme
 }

@@ -12,6 +12,7 @@ import {
   inviteAgent,
   leaveOrg,
   removeMember,
+  setWhiteLabel,
   update,
 } from '@/controllers/orgs';
 import orgRoleAuth from '@/middlewares/roleAuth';
@@ -54,6 +55,7 @@ orgsRouter
   .get('/:id', orgRoleAuth(AgentRole.agent), getOne)
   .get('', getMyOrgs)
   .delete('/:id', orgRoleAuth(AgentRole.owner), deleteOne)
+  .post('/:id/set-whitelabel', orgRoleAuth(AgentRole.admin), setWhiteLabel)
 
   // agents
   .get('/:id/members', orgRoleAuth(AgentRole.agent), getOrgMembers)
