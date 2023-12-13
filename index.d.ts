@@ -2,6 +2,7 @@ import { IAgentProfile } from '@/types/agentProfile.types';
 import type { IUser } from './src/types/user.types';
 import { ISearchResult } from '@/types/search.types';
 import { IContact } from '@/types/contact.types';
+import { Socket as OriginalSocket } from 'socket.io';
 
 declare global {
   namespace Express {
@@ -12,4 +13,9 @@ declare global {
       contact?: IContact;
     }
   }
+
+  declare type Socket = OriginalSocket & {
+    user?: IUser;
+    token?: string;
+  };
 }

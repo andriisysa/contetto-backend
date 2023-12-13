@@ -1,7 +1,7 @@
 import express from 'express';
 
 import validate from '@/middlewares/validation';
-import { contactSchema, orgSchema, searchScheme } from '@/schema';
+import { channelScheme, contactSchema, orgSchema, searchScheme } from '@/schema';
 import {
   acceptInvite,
   create,
@@ -45,6 +45,8 @@ import {
   undoProperty,
 } from '@/controllers/search';
 import { searchAuth, searchResultAuth } from '@/middlewares/searchAuth';
+import { addMemberToChannel, createChannel, createDm, getAllRooms, updateChannel } from '@/controllers/rooms';
+import { getAllMessages } from '@/controllers/messages';
 
 const orgsRouter = express.Router();
 
@@ -93,6 +95,21 @@ orgsRouter
   .get('/:id/search-results/:searchId/property/:propertyId', searchResultAuth(true), getProperty)
   .post('/:id/search-results/:searchId/property/:propertyId/shortlist', searchResultAuth(true), shortlistProperty)
   .post('/:id/search-results/:searchId/property/:propertyId/reject', searchResultAuth(true), rejectProperty)
-  .post('/:id/search-results/:searchId/property/:propertyId/undo', searchResultAuth(true), undoProperty);
+  .post('/:id/search-results/:searchId/property/:propertyId/undo', searchResultAuth(true), undoProperty)
+
+  // channels/dms
+  .post('/:id/channels', validate(channelScheme.create), orgRoleAuth(AgentRole.agent), createChannel)
+  .post('/:id/dms', orgRoleAuth(AgentRole.agent), createDm)
+  .put('/:id/channels/:roomId', validate(channelScheme.create), orgRoleAuth(AgentRole.agent), updateChannel)
+  .get('/:id/rooms', getAllRooms)
+  .put(
+    '/:id/channels/:roomId/add-members',
+    validate(channelScheme.addMembers),
+    orgRoleAuth(AgentRole.agent),
+    addMemberToChannel
+  )
+
+  // messages
+  .get('/:id/rooms/:roomId/messages', getAllMessages);
 
 export default orgsRouter;

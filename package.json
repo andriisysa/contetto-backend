@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.465.0",
+    "@socket.io/mongo-adapter": "^0.3.0",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -23,7 +24,8 @@
     "jsonwebtoken": "^9.0.2",
     "luxon": "^3.4.3",
     "mongodb": "^6.2.0",
-    "postmark": "^3.1.2"
+    "postmark": "^4.0.2",
+    "socket.io": "^4.7.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -34,5 +36,9 @@
     "tsconfig-paths": "^4.2.0",
     "tsx": "^3.14.0",
     "typescript": "^5.2.2"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.8",
+    "utf-8-validate": "^5.0.10"
   }
 }

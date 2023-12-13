@@ -44,3 +44,8 @@ export const searchScheme = {
   save: [body('searchName').isString().withMessage('Search name is required!')],
   share: [body('contactId').isString().withMessage('ContactId is required!')],
 };
+
+export const channelScheme = {
+  create: [body('name').isString().withMessage('Channel name is required!')],
+  addMembers: [body('usernames').isString().withMessage('Member names are required!')],
+};

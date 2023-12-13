@@ -25,4 +25,5 @@ export interface IUser {
   createdAt: number;
   updatedAt: number;
   deleted: boolean;
+  socketId?: string;
 }
