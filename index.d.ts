@@ -16,6 +16,5 @@ declare global {
 
   declare type Socket = OriginalSocket & {
     user?: IUser;
-    token?: string;
   };
 }

@@ -38,12 +38,15 @@ export interface IMessagePayload {
 }
 
 export enum ServerMessageType {
+  // welcome
+  connected = 'connected',
+
   // token
   updateToken = 'updateToken',
 
   // channel
   channelUpdate = 'channel:update',
-  channelJoin = "channel:join",
+  channelJoin = 'channel:join',
 
   // message
   msgSend = 'msg:send',
@@ -61,5 +64,5 @@ export enum ClientMessageType {
   msgSend = 'msg:send',
   msgUpdate = 'msg:update',
   msgRead = 'msg:read',
-  msgTyping = 'msg:typing'
+  msgTyping = 'msg:typing',
 }

@@ -8,7 +8,7 @@ import { IRoom, RoomType } from '@/types/room.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
 import { getNow } from '@/utils';
 import { IMessage, ServerMessageType } from '@/types/message.types';
-import { io } from '@/index';
+import { io } from '@/socketServer';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
@@ -121,7 +121,7 @@ export const updateChannel = async (req: Request, res: Response) => {
     // send message in all members
     const users = await usersCol.find({ username: room.usernames }).toArray();
     users.forEach((user) => {
-      if (user.socketId) {
+      if (io && user.socketId) {
         io.to(user.socketId).emit(ServerMessageType.channelUpdate, { ...room, ...data });
       }
     });
@@ -236,7 +236,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
 
     // send message to all members in channel
     [...newUsers, ...existingUsers].forEach((user) => {
-      if (user.socketId) {
+      if (io && user.socketId) {
         io.to(user.socketId).emit(ServerMessageType.channelJoin, {
           ...room,
           userStatus: roomUserStatus,

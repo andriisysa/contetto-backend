@@ -1,18 +1,22 @@
 import { createAdapter } from '@socket.io/mongo-adapter';
 import { db } from './database';
-import { io } from '.';
-import { ObjectId, WithoutId } from 'mongodb';
+import { WithoutId } from 'mongodb';
 import { IRoom } from './types/room.types';
-import { generateTokens, verifyToken } from './utils/jwt';
+import { verifyToken } from './utils/jwt';
 import { IUser } from './types/user.types';
 import { messageHandler } from './websocket/messages';
+import { ServerMessageType } from './types/message.types';
+import { Server } from 'socket.io';
+import http from 'http';
 
 export const SOCKET_IO_COLLECTION = 'socketio';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
 
-const setupSocketServer = async () => {
+export let io: Server | undefined = undefined;
+
+const setupSocketServer = async (httpServer: http.Server) => {
   try {
     console.log('Create socket collection');
 
@@ -25,6 +29,21 @@ const setupSocketServer = async () => {
     console.log('socket collection already exists');
   }
 
+  io = new Server(httpServer, {
+    // for websocket transport
+    // cors: {
+    //   origin: '*',
+    //   methods: ['GET', 'POST'],
+    // },
+
+    // for sticky session amd http long polling
+    cors: {
+      origin: ['http://localhost:3000', 'http://127.0.0.1:3000', `${process.env.WEB_URL}`], // for using sticky session for multi-instances
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
+  });
+
   const collection = db.collection(SOCKET_IO_COLLECTION);
 
   io.adapter(createAdapter(collection));
@@ -36,15 +55,9 @@ const setupSocketServer = async () => {
       const accessToken = token.split(' ')[0];
       const refreshToken = token.split(' ')[1];
 
-      socket.token = undefined;
-
       let user = verifyToken(accessToken) as IUser;
       if (!user) {
         user = verifyToken(refreshToken);
-        if (user) {
-          // update token
-          socket.token = generateTokens(user);
-        }
       }
 
       if (user) {
@@ -69,32 +82,21 @@ const setupSocketServer = async () => {
         );
 
         socket.user = user;
+
+        return next();
       }
     }
 
-    next();
+    // next();
+    next(new Error('not authorized'));
   }).on('connection', (socket: Socket) => {
-    // // middleware - whenever message is coming from client
-    // socket.use(([event, ...args], next) => {
-    //   console.log('socket middleware');
-    //   console.log(event, args);
-
-    //   if (socket.user) {
-    //     next();
-    //   }
-    // });
+    socket.emit(ServerMessageType.connected, { msg: 'Welcome from server' });
 
     // will be called after socket.use() middleware
-    messageHandler(io, socket);
-
-    socket.on('error', (err) => {
-      if (err && err.message === 'unauthorized event') {
-        socket.disconnect();
-      }
-    });
+    messageHandler(io as Server, socket);
 
     // when socket is disconnected
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', async (as: any) => {
       const user = socket.user;
       if (user) {
         // update user
@@ -118,6 +120,23 @@ const setupSocketServer = async () => {
         );
       }
     });
+
+    // may consider later, but not for now
+    // // middleware - whenever message is coming from client
+    // socket.use(([event, ...args], next) => {
+    //   console.log('socket middleware');
+    //   console.log(event, args);
+
+    //   if (socket.user) {
+    //     next();
+    //   }
+    // });
+    // socket.on('error', (err: any) => {
+    //   console.log('error =>', err);
+    //   if (err && err.message === 'unauthorized event') {
+    //     socket.disconnect();
+    //   }
+    // });
   });
 };
 
