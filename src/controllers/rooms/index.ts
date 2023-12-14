@@ -7,7 +7,7 @@ import { IUser } from '@/types/user.types';
 import { IRoom, RoomType } from '@/types/room.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
 import { getNow } from '@/utils';
-import { IMessage } from '@/types/message.types';
+import { IMessage, ServerMessageType } from '@/types/message.types';
 import { io } from '@/index';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
@@ -42,6 +42,7 @@ export const createChannel = async (req: Request, res: Response) => {
         },
       },
       createdAt: getNow(),
+      updatedAt: getNow(),
     };
 
     const newRoom = await roomsCol.insertOne(data);
@@ -85,6 +86,7 @@ export const createDm = async (req: Request, res: Response) => {
         {}
       ),
       createdAt: getNow(),
+      updatedAt: getNow(),
     };
     const newDM = await roomsCol.insertOne(data);
 
@@ -112,9 +114,19 @@ export const updateChannel = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'Room not found' });
     }
 
-    await roomsCol.updateOne({ _id: room._id }, { $set: { name } });
+    const data = { name, updatedAt: getNow() };
 
-    return res.json({ ...room, name });
+    await roomsCol.updateOne({ _id: room._id }, { $set: data });
+
+    // send message in all members
+    const users = await usersCol.find({ username: room.usernames }).toArray();
+    users.forEach((user) => {
+      if (user.socketId) {
+        io.to(user.socketId).emit(ServerMessageType.channelUpdate, { ...room, ...data });
+      }
+    });
+
+    return res.json({ ...room, ...data });
   } catch (error) {
     console.log('updateChannel error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -171,8 +183,9 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
       senderName: user.username,
       createdAt: getNow(),
       updatedAt: getNow(),
-      userStatus: [...existingUsers, ...newUsers].reduce((obj, u) => ({ ...obj, [u.username]: { read: false } }), {}),
+      // userStatus: [...existingUsers, ...newUsers].reduce((obj, u) => ({ ...obj, [u.username]: { read: false } }), {}),
       attatchMents: [],
+      edited: false,
     };
     const newMessage = await messagesCol.insertOne(msgData);
 
@@ -210,6 +223,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
       { _id: room._id },
       {
         $set: {
+          usernames: [...newUsers, ...existingUsers].map((u) => u.username),
           userStatus: roomUserStatus,
         },
       }
@@ -217,13 +231,18 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
 
     const data = {
       message: { ...msgData, _id: newMessage.insertedId },
-      room: { ...room, userStatus: roomUserStatus },
+      room: { ...room, userStatus: roomUserStatus, usernames: [...newUsers, ...existingUsers].map((u) => u.username) },
     };
 
     // send message to all members in channel
     [...newUsers, ...existingUsers].forEach((user) => {
       if (user.socketId) {
-        io.to(user.socketId).emit('message', data);
+        io.to(user.socketId).emit(ServerMessageType.channelJoin, {
+          ...room,
+          userStatus: roomUserStatus,
+          usernames: [...newUsers, ...existingUsers].map((u) => u.username),
+        });
+        io.to(user.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMessage.insertedId });
       }
     });
 

@@ -24,7 +24,7 @@ export const getAllMessages = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'Room not found' });
     }
 
-    const messages = await messagesCol.find({ roomId: room._id, orgId: room.orgId }).toArray();
+    const messages = await messagesCol.find({ roomId: room._id, orgId: room.orgId }).sort({ createdAt: -1 }).toArray();
 
     return res.json(messages);
   } catch (error) {
