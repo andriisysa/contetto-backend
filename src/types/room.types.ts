@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb';
-import { IUser } from './user.types';
-import { IOrg } from './org.types';
+import { IAgentProfile } from './agentProfile.types';
+import { IContact } from './contact.types';
 
 export interface IRoomUserStatus {
   [username: string]: {
@@ -18,12 +18,27 @@ export enum RoomType {
   dm = 'dm',
 }
 
+export interface IRoomAgent {
+  _id: ObjectId; // agentProfile id
+  username: string;
+}
+
+export interface IRoomContact {
+  _id: ObjectId; // contactId
+  username: string;
+  agentId: ObjectId;
+  agentName: string;
+}
+
 export interface IRoom {
   _id: ObjectId;
   orgId: ObjectId;
   name?: string; // optional for dm
-  usernames: string[]; // username
-  users?: IUser[];
+  usernames: string[]; // unique usernames in room
+  agents: IRoomAgent[];
+  agentProfiles?: IAgentProfile[];
+  contacts: IRoomContact[];
+  contactProfiles?: IContact[];
   creator: string; // creator username
   type: RoomType;
   userStatus: IRoomUserStatus;

@@ -47,6 +47,4 @@ export const searchScheme = {
 
 export const channelScheme = {
   create: [body('name').isString().withMessage('Channel name is required!')],
-  createDM: [body('usernames').isArray({ min: 2 }).withMessage('Usernames are required!')],
-  addMembers: [body('usernames').isArray({ min: 1 }).withMessage('Member names are required!')],
 };

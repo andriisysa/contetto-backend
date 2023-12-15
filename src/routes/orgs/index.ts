@@ -99,15 +99,10 @@ orgsRouter
 
   // channels/dms
   .post('/:id/channels', validate(channelScheme.create), orgRoleAuth(AgentRole.agent), createChannel)
-  .post('/:id/dms', validate(channelScheme.createDM), orgRoleAuth(AgentRole.agent), createDm)
+  .post('/:id/dms', orgRoleAuth(AgentRole.agent), createDm)
   .put('/:id/channels/:roomId', validate(channelScheme.create), orgRoleAuth(AgentRole.agent), updateChannel)
   .get('/:id/rooms', getAllRooms)
-  .post(
-    '/:id/channels/:roomId/add-members',
-    validate(channelScheme.addMembers),
-    orgRoleAuth(AgentRole.agent),
-    addMemberToChannel
-  )
+  .post('/:id/channels/:roomId/add-members', orgRoleAuth(AgentRole.agent), addMemberToChannel)
 
   // messages
   .get('/:id/rooms/:roomId/messages', getAllMessages);
