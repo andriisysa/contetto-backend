@@ -188,11 +188,12 @@ export const updateChannel = async (req: Request, res: Response) => {
 export const getAllRooms = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
-    const { id: orgId, contactId } = req.params;
+    const { id: orgId } = req.params;
+    const { contactId } = req.query;
 
     if (contactId) {
       const contactProfile = await contactsCol.findOne({
-        _id: new ObjectId(contactId),
+        _id: new ObjectId(String(contactId)),
         orgId: new ObjectId(orgId),
         username: user.username,
       });
