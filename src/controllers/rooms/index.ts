@@ -197,27 +197,31 @@ export const getAllRooms = async (req: Request, res: Response) => {
         orgId: new ObjectId(orgId),
         username: user.username,
       });
-
       if (contactProfile) {
-        const rooms = await roomsCol.find({
-          orgId: new ObjectId(orgId),
-          'contacts._id': contactProfile._id,
-          'contacts.username': user.username,
-          $or: [{ type: RoomType.channel }, { type: RoomType.dm, dmInitiated: true }],
-        });
+        const rooms = await roomsCol
+          .find({
+            orgId: new ObjectId(orgId),
+            'contacts._id': contactProfile._id,
+            'contacts.username': user.username,
+            $or: [{ type: RoomType.channel }, { type: RoomType.dm, dmInitiated: true }],
+          })
+          .toArray();
 
         return res.json(rooms);
       }
 
       return res.json([]);
     }
+
     const agentProfile = await agentProfilesCol.findOne({ orgId: new ObjectId(orgId), username: user.username });
     if (agentProfile) {
-      const rooms = await roomsCol.find({
-        orgId: new ObjectId(orgId),
-        'agents.username': user.username,
-        $or: [{ type: RoomType.channel }, { type: RoomType.dm, dmInitiated: true }],
-      });
+      const rooms = await roomsCol
+        .find({
+          orgId: new ObjectId(orgId),
+          'agents.username': user.username,
+          $or: [{ type: RoomType.channel }, { type: RoomType.dm, dmInitiated: true }],
+        })
+        .toArray();
 
       return res.json(rooms);
     }
