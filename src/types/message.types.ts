@@ -51,6 +51,7 @@ export enum ServerMessageType {
   // message
   msgSend = 'msg:send',
   msgUpdate = 'msg:update',
+  msgRead = 'msg:read',
   msgTyping = 'msg:typing',
 
   // error

@@ -204,7 +204,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
       };
       await roomsCol.updateOne({ _id: room._id }, { $set: { userStatus: roomUserStatus } });
 
-      socket.emit(ServerMessageType.channelUpdate, { ...room, userStatus: roomUserStatus });
+      socket.emit(ServerMessageType.msgRead, { ...room, userStatus: roomUserStatus });
     } catch (error) {
       console.log('sendMessage error ===>', error);
       return socket.emit(ServerMessageType.unknownError, error);

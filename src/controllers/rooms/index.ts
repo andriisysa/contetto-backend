@@ -107,6 +107,7 @@ export const createDm = async (req: Request, res: Response) => {
     const dm = await roomsCol.findOne({
       orgId: agentProfile.orgId,
       usernames: { $all: users.map((u) => u.username) },
+      type: RoomType.dm,
     });
     if (dm) return res.json(dm);
 
