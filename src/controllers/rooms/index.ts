@@ -353,8 +353,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
     });
 
     // send email if offline
-    const offLineNewUsers = newUsers.filter((u) => !u.socketId);
-    offLineNewUsers.forEach(async (u) => {
+    newUsers.forEach(async (u) => {
       try {
         const agent = roomData.agents.find((a) => a.username === u.username);
         if (agent) {
