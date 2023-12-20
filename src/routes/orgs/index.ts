@@ -45,7 +45,7 @@ import {
   undoProperty,
 } from '@/controllers/search';
 import { searchAuth, searchResultAuth } from '@/middlewares/searchAuth';
-import { addMemberToChannel, createChannel, createDm, getAllRooms, updateChannel } from '@/controllers/rooms';
+import { addMemberToChannel, createChannel, createDm, updateChannel } from '@/controllers/rooms';
 import { getAllMessages } from '@/controllers/messages';
 
 const orgsRouter = express.Router();
@@ -101,7 +101,6 @@ orgsRouter
   .post('/:id/channels', validate(channelScheme.create), orgRoleAuth(AgentRole.agent), createChannel)
   .post('/:id/dms', orgRoleAuth(AgentRole.agent), createDm)
   .put('/:id/channels/:roomId', validate(channelScheme.create), orgRoleAuth(AgentRole.agent), updateChannel)
-  .get('/:id/rooms', getAllRooms)
   .post('/:id/channels/:roomId/add-members', orgRoleAuth(AgentRole.agent), addMemberToChannel)
 
   // messages

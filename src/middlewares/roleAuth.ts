@@ -7,49 +7,53 @@ import { ObjectId, WithoutId } from 'mongodb';
 const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles');
 
 const orgRoleAuth = (role: AgentRole) => async (req: Request, res: Response, next: NextFunction) => {
-  const user = req.user as IUser;
-  const { id: orgId } = req.params;
+  try {
+    const user = req.user as IUser;
+    const { id: orgId } = req.params;
 
-  if (!orgId) {
-    return res.status(401).json({ msg: 'No organization selected' });
-  }
+    if (!orgId) {
+      return res.status(401).json({ msg: 'No organization selected' });
+    }
 
-  const agentProfiles = await agentProfilesCol
-    .aggregate<IAgentProfile>([
-      {
-        $match: {
-          orgId: new ObjectId(orgId),
-          username: user.username,
-          deleted: false,
+    const agentProfiles = await agentProfilesCol
+      .aggregate<IAgentProfile>([
+        {
+          $match: {
+            orgId: new ObjectId(orgId),
+            username: user.username,
+            deleted: false,
+          },
         },
-      },
-      {
-        $lookup: {
-          from: 'orgs',
-          localField: 'orgId',
-          foreignField: '_id',
-          as: 'org',
+        {
+          $lookup: {
+            from: 'orgs',
+            localField: 'orgId',
+            foreignField: '_id',
+            as: 'org',
+          },
         },
-      },
-      {
-        $unwind: {
-          path: '$org',
+        {
+          $unwind: {
+            path: '$org',
+          },
         },
-      },
-    ])
-    .toArray();
+      ])
+      .toArray();
 
-  if (agentProfiles.length === 0) {
-    return res.status(404).json({ msg: 'You are not an agent in this organization' });
+    if (agentProfiles.length === 0) {
+      return res.status(404).json({ msg: 'You are not an agent in this organization' });
+    }
+
+    if (roleOrder[agentProfiles[0].role] > roleOrder[role]) {
+      return res.status(404).json({ msg: "You don't have role to perform this" });
+    }
+
+    req.agentProfile = agentProfiles[0];
+
+    await next();
+  } catch (error) {
+    return res.status(500).json({ msg: 'Server Error' });
   }
-
-  if (roleOrder[agentProfiles[0].role] > roleOrder[role]) {
-    return res.status(404).json({ msg: "You don't have role to perform this" });
-  }
-
-  req.agentProfile = agentProfiles[0];
-
-  await next();
 };
 
 export default orgRoleAuth;

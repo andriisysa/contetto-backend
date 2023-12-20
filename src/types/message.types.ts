@@ -27,7 +27,8 @@ export interface IMessage {
   // userStatus: IMessageUserStatus;
   attatchMents: IMsgAttachMent[];
   edited: boolean;
-  // mentions:
+  mentions: string[]; // usernames
+  channels: string[]; // channel names
 }
 
 export interface IMessagePayload {
@@ -35,6 +36,8 @@ export interface IMessagePayload {
   user: IUser;
   msg?: string;
   messageId?: string;
+  mentions: string[]; // usernames
+  channels: string[]; // channel names
 }
 
 export enum ServerMessageType {

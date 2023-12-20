@@ -10,6 +10,7 @@ import { getNow } from '@/utils';
 import { IMessage, ServerMessageType } from '@/types/message.types';
 import { io } from '@/socketServer';
 import { IContact } from '@/types/contact.types';
+import { sendEmail } from '@/utils/email';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles');
@@ -48,6 +49,7 @@ export const createChannel = async (req: Request, res: Response) => {
       },
       createdAt: getNow(),
       updatedAt: getNow(),
+      deleted: false,
     };
 
     const newRoom = await roomsCol.insertOne(data);
@@ -140,6 +142,7 @@ export const createDm = async (req: Request, res: Response) => {
       ),
       createdAt: getNow(),
       updatedAt: getNow(),
+      deleted: false,
     };
     const newDM = await roomsCol.insertOne(data);
 
@@ -189,45 +192,16 @@ export const updateChannel = async (req: Request, res: Response) => {
 export const getAllRooms = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
-    const { id: orgId } = req.params;
-    const { contactId } = req.query;
 
-    if (contactId) {
-      const contactProfile = await contactsCol.findOne({
-        _id: new ObjectId(String(contactId)),
-        orgId: new ObjectId(orgId),
-        username: user.username,
-      });
-      if (contactProfile) {
-        const rooms = await roomsCol
-          .find({
-            orgId: new ObjectId(orgId),
-            'contacts._id': contactProfile._id,
-            'contacts.username': user.username,
-            $or: [{ type: RoomType.channel }, { type: RoomType.dm, dmInitiated: true }],
-          })
-          .toArray();
+    const rooms = await roomsCol
+      .find({
+        usernames: user.username,
+        $or: [{ type: RoomType.channel }, { type: RoomType.dm, dmInitiated: true }],
+        deleted: false,
+      })
+      .toArray();
 
-        return res.json(rooms);
-      }
-
-      return res.json([]);
-    }
-
-    const agentProfile = await agentProfilesCol.findOne({ orgId: new ObjectId(orgId), username: user.username });
-    if (agentProfile) {
-      const rooms = await roomsCol
-        .find({
-          orgId: new ObjectId(orgId),
-          'agents.username': user.username,
-          $or: [{ type: RoomType.channel }, { type: RoomType.dm, dmInitiated: true }],
-        })
-        .toArray();
-
-      return res.json(rooms);
-    }
-
-    return res.json([]);
+    return res.json(rooms);
   } catch (error) {
     console.log('getAllRooms error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -298,6 +272,8 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
       // userStatus: [...existingUsers, ...newUsers].reduce((obj, u) => ({ ...obj, [u.username]: { read: false } }), {}),
       attatchMents: [],
       edited: false,
+      mentions: [],
+      channels: [],
     };
     const newMessage = await messagesCol.insertOne(msgData);
 
@@ -358,14 +334,64 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
     };
 
     // send message to all members in channel
-    [...newUsers, ...existingUsers].forEach((user) => {
-      if (io && user.socketId) {
-        io.to(user.socketId).emit(ServerMessageType.channelJoin, roomData);
-        io.to(user.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMessage.insertedId });
+    newUsers.forEach((u) => {
+      if (io && u.socketId) {
+        io.to(u.socketId).emit(ServerMessageType.channelJoin, roomData);
+      }
+    });
+
+    existingUsers.forEach((u) => {
+      if (io && u.socketId && u.username !== user.username) {
+        io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
+      }
+    });
+
+    [...newUsers, ...existingUsers].forEach((u) => {
+      if (io && u.socketId) {
+        io.to(u.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMessage.insertedId });
       }
     });
 
     // send email if offline
+    const offLineNewUsers = newUsers.filter((u) => !u.socketId);
+    offLineNewUsers.forEach(async (u) => {
+      try {
+        const agent = roomData.agents.find((a) => a.username === u.username);
+        if (agent) {
+          await sendEmail(
+            u.emails[0].email,
+            'Join new Room',
+            undefined,
+            `
+            <b> Channel Invitation (${agentProfile.org?.name} organization)</b>
+            <p>
+              You are invited into a new channel ${room.name} by ${user.username}
+              Please join <a href="${process.env.WEB_URL}/app/agent-orgs/${agent._id}/rooms/${room._id}" target="_blank">here</a>
+            </p>
+            `
+          );
+          return;
+        }
+
+        const contact = roomData.contacts.find((c) => c.username === u.username);
+        if (contact) {
+          await sendEmail(
+            u.emails[0].email,
+            'Join new Room',
+            undefined,
+            `
+            <b> Channel Invitation (${agentProfile.org?.name} organization)</b>
+            <p>
+              You are invited into a new channel ${room.name} by ${user.username}
+              Please join <a href="${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${room._id}" target="_blank">here</a>
+            </p>
+            `
+          );
+        }
+      } catch (error) {
+        console.log('sendMessage error ===>', error);
+      }
+    });
 
     // send push notification if offline
 
