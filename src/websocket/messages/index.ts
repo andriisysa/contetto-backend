@@ -283,6 +283,40 @@ export const messageHandler = (io: Server, socket: Socket) => {
     }
   });
 
+  const deleteMessage = messageAuth(async (payload: IMessagePayload) => {
+    try {
+      const { room, user, messageId } = payload;
+
+      if (!messageId) {
+        return socket.emit(ServerMessageType.invalidRequest, { msg: 'Invalid request' });
+      }
+
+      // get message
+      const message = await messagesCol.findOne({
+        _id: new ObjectId(messageId),
+        roomId: room._id,
+        senderName: user.username,
+      });
+      if (!message) {
+        return socket.emit(ServerMessageType.notFoundError, { msg: 'Message not found' });
+      }
+
+      await messagesCol.deleteOne({ _id: message._id });
+
+      // get all users
+      const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
+
+      users.forEach((u) => {
+        if (u.socketId && u.username !== user.username) {
+          io.to(u.socketId).emit(ServerMessageType.msgDelete, message);
+        }
+      });
+    } catch (error) {
+      console.log('sendMessage error ===>', error);
+      return socket.emit(ServerMessageType.unknownError, error);
+    }
+  });
+
   const readMessage = messageAuth(async (payload: IMessagePayload) => {
     try {
       const { room, user } = payload;
@@ -327,6 +361,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
 
   socket.on(ClientMessageType.msgSend, sendMessage);
   socket.on(ClientMessageType.msgUpdate, updateMessage);
+  socket.on(ClientMessageType.msgDelete, deleteMessage);
   socket.on(ClientMessageType.msgRead, readMessage);
   socket.on(ClientMessageType.msgTyping, typing);
 };

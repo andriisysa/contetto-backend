@@ -56,6 +56,7 @@ export enum ServerMessageType {
   msgUpdate = 'msg:update',
   msgRead = 'msg:read',
   msgTyping = 'msg:typing',
+  msgDelete = 'msg:delete',
 
   // error
   invalidRequest = 'error:invalid',
@@ -69,4 +70,5 @@ export enum ClientMessageType {
   msgUpdate = 'msg:update',
   msgRead = 'msg:read',
   msgTyping = 'msg:typing',
+  msgDelete = 'msg:delete',
 }
