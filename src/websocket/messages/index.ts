@@ -2,7 +2,6 @@ import { db } from '@/database';
 import { ClientMessageType, IMessage, IMessagePayload, ServerMessageType } from '@/types/message.types';
 import { IRoom, IRoomUserStatus, RoomType } from '@/types/room.types';
 import { IUser } from '@/types/user.types';
-import { getNow } from '@/utils';
 import { sendEmail } from '@/utils/email';
 import { generateTokens, verifyToken } from '@/utils/jwt';
 import { ObjectId, WithoutId } from 'mongodb';
@@ -82,8 +81,8 @@ export const messageHandler = (io: Server, socket: Socket) => {
         roomId: room._id,
         msg,
         senderName: user.username,
-        createdAt: getNow(),
-        updatedAt: getNow(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
         // userStatus: users.reduce((obj, u) => ({ ...obj, [u.username]: { read: false } }), {}),
         attatchMents: [],
         edited: false,
@@ -221,7 +220,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
       const msgUpdateData = {
         msg,
         edited: true,
-        updatedAt: getNow(),
+        updatedAt: Date.now(),
         mentions: [...message.mentions, ...additionalMentions],
         channels: [...message.channels, ...channels],
       };

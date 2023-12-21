@@ -28,8 +28,6 @@ export const searchCitites = async (req: Request, res: Response) => {
       };
     }
 
-    console.log(query);
-
     const cities = await citiesCol.find(query).limit(20).toArray();
 
     return res.json(cities);
