@@ -12,15 +12,25 @@ export const searchCitites = async (req: Request, res: Response) => {
     const search = req.query.search;
     if (!search || String(search).length < 2) return res.json([]);
 
-    const cities = await citiesCol
-      .find({
-        city: {
-          $regex: String(search).replace(/[-[\]{}()*+?.,\\/^$|#\s]/g, '\\$&'),
-          $options: 'i',
-        },
-      })
-      .limit(20)
-      .toArray();
+    const arr = String(search).split(',');
+
+    const query: any = {
+      city: {
+        $regex: arr[0].trim().replace(/[-[\]{}()*+?.,\\/^$|#\s]/g, '\\$&'),
+        $options: 'i',
+      },
+    };
+
+    if (arr[1] && arr[1].trim()) {
+      query.admin_name = {
+        $regex: arr[1].trim().replace(/[-[\]{}()*+?.,\\/^$|#\s]/g, '\\$&'),
+        $options: 'i',
+      };
+    }
+
+    console.log(query);
+
+    const cities = await citiesCol.find(query).limit(20).toArray();
 
     return res.json(cities);
   } catch (error) {
