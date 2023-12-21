@@ -307,7 +307,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
       const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
 
       users.forEach((u) => {
-        if (u.socketId && u.username !== user.username) {
+        if (u.socketId) {
           io.to(u.socketId).emit(ServerMessageType.msgDelete, message);
         }
       });
