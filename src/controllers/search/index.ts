@@ -19,6 +19,8 @@ const citiesCol = db.collection<WithoutId<ICity>>('cities');
 
 const SERACH_LIMIT = 12;
 const MAX_RANGE = 100;
+const NEAR_BY_DISTANCE = 5 * 1000;
+const WALKING_DISTANCE = 400;
 
 const processValue = (apiResponseData: any, userQuery: any) => {
   let value = apiResponseData.choices && apiResponseData.choices[0].message.content;
@@ -390,12 +392,139 @@ export const getProperty = async (req: Request, res: Response) => {
     const searchResult = req.searchResult as ISearchResult;
     const { propertyId } = req.params;
 
-    const property = await listingsCol.findOne({ _id: new ObjectId(propertyId) });
-    if (!property) {
+    const properties = await listingsCol
+      .aggregate([
+        { $match: { _id: new ObjectId(propertyId) } },
+        {
+          $lookup: {
+            from: 'parks',
+            as: 'walkingDistanceParks',
+            let: { coordinates: '$location.coordinates' },
+            pipeline: [
+              {
+                $geoNear: {
+                  near: {
+                    type: 'Point',
+                    coordinates: '$$coordinates',
+                  },
+                  distanceField: 'distance',
+                  maxDistance: WALKING_DISTANCE,
+                  spherical: true,
+                },
+              },
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: 'parks',
+            as: 'nearbyParks',
+            let: { coordinates: '$location.coordinates' },
+            pipeline: [
+              {
+                $geoNear: {
+                  near: {
+                    type: 'Point',
+                    coordinates: '$$coordinates',
+                  },
+                  distanceField: 'distance',
+                  minDistance: WALKING_DISTANCE + 0.1,
+                  maxDistance: NEAR_BY_DISTANCE,
+                  spherical: true,
+                },
+              },
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: 'schools',
+            as: 'walkingDistanceSchools',
+            let: { coordinates: '$location.coordinates' },
+            pipeline: [
+              {
+                $geoNear: {
+                  near: {
+                    type: 'Point',
+                    coordinates: '$$coordinates',
+                  },
+                  distanceField: 'distance',
+                  maxDistance: WALKING_DISTANCE,
+                  spherical: true,
+                },
+              },
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: 'schools',
+            as: 'nearbySchools',
+            let: { coordinates: '$location.coordinates' },
+            pipeline: [
+              {
+                $geoNear: {
+                  near: {
+                    type: 'Point',
+                    coordinates: '$$coordinates',
+                  },
+                  distanceField: 'distance',
+                  minDistance: WALKING_DISTANCE + 0.1,
+                  maxDistance: NEAR_BY_DISTANCE,
+                  spherical: true,
+                },
+              },
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: 'healthcare',
+            as: 'walkingDistanceHealthcares',
+            let: { coordinates: '$location.coordinates' },
+            pipeline: [
+              {
+                $geoNear: {
+                  near: {
+                    type: 'Point',
+                    coordinates: '$$coordinates',
+                  },
+                  distanceField: 'distance',
+                  maxDistance: WALKING_DISTANCE,
+                  spherical: true,
+                },
+              },
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: 'healthcare',
+            as: 'nearbyHealthcares',
+            let: { coordinates: '$location.coordinates' },
+            pipeline: [
+              {
+                $geoNear: {
+                  near: {
+                    type: 'Point',
+                    coordinates: '$$coordinates',
+                  },
+                  distanceField: 'distance',
+                  minDistance: WALKING_DISTANCE + 0.1,
+                  maxDistance: NEAR_BY_DISTANCE,
+                  spherical: true,
+                },
+              },
+            ],
+          },
+        },
+      ])
+      .toArray();
+    if (properties.length === 0) {
       return res.status(404).json({ msg: 'No property found' });
     }
 
-    return res.json({ property, searchResult });
+    return res.json({ property: properties[0], searchResult });
   } catch (error) {
     console.log('getProperty error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
