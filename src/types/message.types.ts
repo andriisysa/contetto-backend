@@ -38,6 +38,7 @@ export interface IMessagePayload {
   messageId?: string;
   mentions: string[]; // usernames
   channels: string[]; // channel names
+  typing?: boolean;
 }
 
 export enum ServerMessageType {
