@@ -349,7 +349,11 @@ export const messageHandler = (io: Server, socket: Socket) => {
 
       users.forEach((u) => {
         if (u.socketId && u.username !== user.username) {
-          io.to(u.socketId).emit(ServerMessageType.msgTyping, { roomId: room._id, username: user.username, typing });
+          io.to(u.socketId).emit(ServerMessageType.msgTyping, {
+            roomId: room._id,
+            username: user.username,
+            typing: !!typing,
+          });
         }
       });
     } catch (error) {
