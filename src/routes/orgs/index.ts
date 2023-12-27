@@ -46,7 +46,7 @@ import {
 } from '@/controllers/search';
 import { searchAuth, searchResultAuth } from '@/middlewares/searchAuth';
 import { addMemberToChannel, createChannel, createDm, updateChannel } from '@/controllers/rooms';
-import { getAllMessages } from '@/controllers/messages';
+import { loadMessages, loadMoreMessages } from '@/controllers/messages';
 
 const orgsRouter = express.Router();
 
@@ -104,6 +104,7 @@ orgsRouter
   .post('/:id/channels/:roomId/add-members', orgRoleAuth(AgentRole.agent), addMemberToChannel)
 
   // messages
-  .get('/:id/rooms/:roomId/messages', getAllMessages);
+  .get('/:id/rooms/:roomId/messages', loadMessages)
+  .get('/:id/rooms/:roomId/messages/more', loadMoreMessages);
 
 export default orgsRouter;

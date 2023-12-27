@@ -22,8 +22,8 @@ export interface IMessage {
   msg?: string;
   senderName: string; // sender username
   sender?: IUser;
-  createdAt: number; // unix timestamp
-  updatedAt?: number; // unix timestamp
+  createdAt: number; // milliseconds timestamp
+  updatedAt?: number; // milliseconds timestamp
   // userStatus: IMessageUserStatus;
   attatchMents: IMsgAttachMent[];
   edited: boolean;
