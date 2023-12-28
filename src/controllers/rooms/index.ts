@@ -11,6 +11,7 @@ import { IMessage, ServerMessageType } from '@/types/message.types';
 import { io } from '@/socketServer';
 import { IContact } from '@/types/contact.types';
 import { sendEmail } from '@/utils/email';
+import { sendPush } from '@/utils/onesignal';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles');
@@ -352,7 +353,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
       }
     });
 
-    // send email if offline
+    // send email
     newUsers.forEach(async (u) => {
       try {
         const agent = roomData.agents.find((a) => a.username === u.username);
@@ -369,6 +370,16 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
             </p>
             `
           );
+
+          // send push notification
+          sendPush({
+            name: '',
+            headings: 'Join new Room',
+            subtitle: `Channel Invitation (${agentProfile.org?.name} organization)`,
+            contents: `You are invited into a new channel ${room.name} by ${user.username} Please join there`,
+            userId: u.username,
+            url: `${process.env.WEB_URL}/app/agent-orgs/${agent._id}/rooms/${room._id}`,
+          });
           return;
         }
 
@@ -386,13 +397,21 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
             </p>
             `
           );
+
+          // send push notification
+          sendPush({
+            name: '',
+            headings: 'Join new Room',
+            subtitle: `Channel Invitation (${agentProfile.org?.name} organization)`,
+            contents: `You are invited into a new channel ${room.name} by ${user.username} Please join there`,
+            userId: u.username,
+            url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${room._id}`,
+          });
         }
       } catch (error) {
         console.log('sendMessage error ===>', error);
       }
     });
-
-    // send push notification if offline
 
     return res.json(data);
   } catch (error) {

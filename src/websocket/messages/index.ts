@@ -4,6 +4,7 @@ import { IRoom, IRoomUserStatus, RoomType } from '@/types/room.types';
 import { IUser } from '@/types/user.types';
 import { sendEmail } from '@/utils/email';
 import { generateTokens, verifyToken } from '@/utils/jwt';
+import { sendPush } from '@/utils/onesignal';
 import { ObjectId, WithoutId } from 'mongodb';
 import { Server } from 'socket.io';
 
@@ -166,6 +167,14 @@ export const messageHandler = (io: Server, socket: Socket) => {
             </p>
             `
             );
+
+            sendPush({
+              name: 'New Message',
+              headings: 'New Message',
+              contents: `You have a new message from ${user.username}`,
+              userId: u.username,
+              url: `${process.env.WEB_URL}/app/agent-orgs/${agent._id}/rooms/${room._id}`,
+            });
             return;
           }
 
@@ -182,6 +191,14 @@ export const messageHandler = (io: Server, socket: Socket) => {
             </p>
             `
             );
+
+            sendPush({
+              name: 'New Message',
+              headings: 'New Message',
+              contents: `You have a new message from ${user.username}`,
+              userId: u.username,
+              url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${room._id}`,
+            });
           }
         } catch (error) {
           console.log('emain send error ===>', error);
