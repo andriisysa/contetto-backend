@@ -26,11 +26,11 @@ export const loadMessages = async (req: Request, res: Response) => {
 
     const messages = await messagesCol
       .find({ roomId: room._id, orgId: room.orgId })
-      .sort({ createdAt: 1 })
+      .sort({ createdAt: -1 })
       .limit(20)
       .toArray();
 
-    return res.json(messages);
+    return res.json(messages.sort((a, b) => a.createdAt - b.createdAt));
   } catch (error) {
     console.log('loadMessages error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -61,11 +61,11 @@ export const loadMoreMessages = async (req: Request, res: Response) => {
 
     const messages = await messagesCol
       .find({ roomId: room._id, orgId: room.orgId, createdAt: { $lt: message.createdAt } })
-      .sort({ createdAt: 1 })
+      .sort({ createdAt: -1 })
       .limit(20)
       .toArray();
 
-    return res.json(messages);
+    return res.json(messages.sort((a, b) => a.createdAt - b.createdAt));
   } catch (error) {
     console.log('load more messages error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
