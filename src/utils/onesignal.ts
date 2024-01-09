@@ -31,12 +31,13 @@ export const sendPush = async ({ name, contents, headings, userId, subtitle, url
         include_external_user_ids: [userId],
         content_available: true,
         url,
+        channel_for_external_user_ids: "push"
       },
     };
 
     await axios.request(options);
     console.log('push sent to ', userId);
   } catch (error) {
-    console.log('send push error ===>', error);
+    console.log('send push error ===>', error?.response?.data);
   }
 };
