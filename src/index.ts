@@ -25,7 +25,7 @@ app
     })
   )
   .use(helmet())
-  .use(express.urlencoded({ extended: false }))
+  .use(express.urlencoded({ extended: true }))
   .use('/', router);
 
 const port = Number(process.env.PORT) || 80;
