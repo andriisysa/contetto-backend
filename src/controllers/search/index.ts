@@ -27,7 +27,7 @@ const MAX_PRICE = 2000000;
 const MAX_SQFT = 10000;
 const MAX_LOT_ACRES = 50;
 
-const processValue = (apiResponseData: any, userQuery: any) => {
+const processValue = (apiResponseData: any) => {
   let value = apiResponseData.choices && apiResponseData.choices[0].message.content;
   value = value.trim();
 
@@ -35,10 +35,6 @@ const processValue = (apiResponseData: any, userQuery: any) => {
     value = JSON.parse(value);
   } catch (e) {
     value = JSON.parse(value.replace(/"/g, "'"));
-  }
-
-  if (Array.isArray(value)) {
-    value = value.reduce((sum, cur) => ({ ...sum, ...cur }), {});
   }
 
   return value;
@@ -120,81 +116,115 @@ export const searchListings = async (req: Request, res: Response) => {
       if (searchResult) {
         userQueryJson = { ...searchResult.userQueryJson, ...userQueryJson };
       } else {
-        // const chatGPTInput = {
-        //   model: 'gpt-3.5-turbo',
-        //   messages: [
-        //     {
-        //       role: 'system',
-        //       content: `
-        //           You are tasked with translating natural language search queries into Nodejs MongoDB JSON Object format. Just using simple query not mongodb aggregate.
-        //           This task pertains to a real estate search involving a MongoDB collection with the following attributes:
-        //           'ArchitecturalStyle': 'Bi-level', - string type,  Homebuyers may look for a specific architectural style that suits their taste or family needs.
-        //           'AttachedGarageYN': true, - boolean type,  Homebuyers often prefer attached garages for direct access to the home and for security reasons.
-        //           'BathroomsHalf': 1, -  Number of half bathrooms can be a consideration for buyers who entertain guests or have a large family.
-        //           'BathroomsTotal': 5, -  Total number of bathrooms is a primary search criteria for most buyers.
-        //           'BedroomsTotal': 6, -  The number of bedrooms is important for the size of the family and the potential for home offices, guest rooms, etc.
-        //           'BuildingAreaTotal': 1991.4, -  number type, The total square footage of the living area can be a deciding factor based on family size and space requirements.
-        //           'BuildingAreaUnits': 'square feet', -  string type, The unit of area measurement is relevant to the buyer's understanding based on regional preference.
-        //           'City': 'High River', -  string type, City location is crucial for proximity to employment, schools, and amenities.
-        //           'ConstructionMaterials': 'Wood frame', - string type, Buyers interested in construction details may look for specific building materials.
-        //           'Cooling': 'Central air conditioning', - string type, Cooling systems are essential in certain climates and for personal comfort.
-        //           'CoolingYN': true, - boolean type, indicate Cooling systems exist or not
-        //           'Country': 'Canada', -  The country can be used to narrow down searches geographically at a high level.
-        //           'CoveredSpaces': 2, -  The number of covered parking spaces can be a deciding factor for buyers with multiple vehicles or those who need protected storage space.
-        //           'Fencing': 'Fence', -  Fencing is important for buyers with pets, children, or privacy concerns.
-        //           'FireplacesTotal': 2, - number type, Fireplaces can be a desirable feature for aesthetic or heating purposes.
-        //           'Flooring': 'Carpeted,Laminate', - string type, Flooring types can influence a buyer's decision based on allergies, maintenance, or personal preference.
-        //           'GarageSpaces': 2, -  The number of garage spaces is often specified in buyer searches.
-        //           'Heating': 'Forced air,', -  Heating type can affect a buyer's decision based on comfort, efficiency, and fuel type.
-        //           'HeatingFuel': 'Natural gas', - string type, The type of heating fuel is important for cost considerations and personal preference.
-        //           'ListingId': 'A1107611', -  The listing ID is used to reference the specific property listing.
-        //           'ListPrice': 599995.00, - number type, List price is one of the most significant factors in a property search.
-        //           'LotSizeArea': 563.6, - number type, The lot size area can determine the amount of outdoor space and is important for gardening, entertainment, and expansion possibilities.
-        //           'LotSizeUnits': 'square meters', - string type, Units of lot size measurement can vary by region and buyer preference.
-        //           'PhotosCount': 50, -  The number of photos available can be important for remote buyers or those who wish to preview the property online before visiting.
-        //           'PostalCode': 'T1V0E2', - string type, The postal code is often used to search within a specific area.
-        //           'OwnershipType': 'Condominium', - string type, OwnershipType is used to filter searches to the kind of property a buyer is interested in (e.g., "strata", "house", "condo"),
-        //                   OwnershipType is important for property filter. if search string contains "strata" or "condo" find where OwnershipType IN ['Strata','Condominium','Condominium/Strata', 'Leasehold Condo/Strata','Leasehold Condo/Strata']
-        //                   if search string  contains "house" find where OwnershipType: "Freehold"
-        //           'PublicRemarks': 'Description', - string type, Detailed description of the property provides insight into features not captured by other data fields.
-        //           'StateOrProvince': 'Alberta', - string type, State or province information is used for regional searches within a country.
-        //           'StreetName': 'High Country', - string type, Street name is part of the address used to identify the property's location.
-        //           'StreetNumber': '2025', - string type, Street number is the specific identifier for the property's location on its street.
-        //           'UnparsedAddress': '2025 High Country Rise NW', - string type, Full address in one line, often used for easy reference or input into mapping software.
-        //           'YearBuilt': 2015, - number type, The year the property was built is important for buyers looking for newer homes with modern amenities.
-        //           'Zoning': '' - string type, Zoning information can influence a buyer's decision based on intended use or future development potential.
-        //           These are the possible values of OwnershipType:
-        //           'Strata','Condominium','Leasehold','Other, See Remarks','Cooperative','Timeshare/Fractional','Shares in Co-operative','Life Lease','Leasehold Condo/Strata','Leasehold Condo/Strata','Freehold','Condominium/Strata','Undivided Co-ownership','Unknown'
-        //           These are the possible values of Cooling:
-        //           null, 'Heat Pump,Air exchanger', 'Air Conditioned,Heat Pump', 'Wall unit,Window air conditioner', 'Partially air conditioned', 'Window air conditioner', 'Fully air conditioned', 'Central air conditioning', 'Central air conditioning,Fully air conditioned', 'Air exchanger', 'Central air conditioning,Heat Pump', 'Wall unit,Air exchanger', 'Air Conditioned,Fully air conditioned', 'Ductless', 'Ductless,Wall unit', 'See Remarks', 'Wall unit', 'None', 'Central air conditioning,Ductless', 'Heat Pump', 'Wall unit,Heat Pump', 'Central air conditioning,Air exchanger', 'Air exchanger,Central air conditioning', 'Air Conditioned'
-        //           These are the possible values of BuildingAreaUnits:
-        //           null, 'square meters', 'acres', 'square feet'
-        //           These are the possible values of Fencing:
-        //           null, 'Not fenced', 'Fenced yard,Other', 'Cross fenced,Fence', 'Fenced yard', 'Fence,Partially fenced', 'Cross fenced', 'Cross fenced,Fence,Partially fenced', 'Partially fenced', 'Fence'
-        //           These are the possile values of LotSizeUnits:
-        //           null, 'square meters', 'acres', 'hectares', 'square feet'
-        //           These are the possible values of Zoning:
-        //           null, 'Multi-Family', 'Rural residential', 'Country residential', 'Industrial Strata', 'Residential/Commercial', 'Recreational', 'Residential medium density', 'Condominium Strata', 'Residential low density', 'Single family dwelling', 'Multiple unit dwelling', 'Commercial', 'Duplex', 'Residential', 'Convenience commercial', 'Single detached residential', 'Agricultural', 'Mobile home', 'Highway commercial', 'Other', 'Unknown'
-        //           Make sure the response does not contain PropertyType, it should be OwnershipType
-        //           Make sure the response does not contain the variable definition or trailing semicolon. I will be using json_decode to turn your response into the Json Object to pass to mongo find.
-        //           Your task is to convert the following natural language query into a Javascrit MongoDB query JSON Object Format.
-        //           Make sure it the format can be parsed into a Json Object by Node.js JSON.parse function
-        //         `,
-        //     },
-        //     { role: 'user', content: userQuery },
-        //   ],
-        // };
-        // // 'PropertyType': 'Single Family', - string type, Property type is used to filter searches to the kind of property a buyer is interested in (e.g., single-family homes, condos).
-        // // These are the possible values of PropertyType:
-        // // 'Single Family','Business','Agriculture','Industrial','Other','Office','Institutional - Special Purpose','Hospitality','Vacant Land','Retail','Multi-family','Parking','Recreational'
-        // const apiEndpoint = 'https://api.openai.com/v1/chat/completions';
-        // const apiResponse = await axios.post(apiEndpoint, chatGPTInput, {
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //     Authorization: `Bearer ${process.env.CHATGPT_KEY}`,
-        //   },
-        // });
-        // let value = apiResponseData.choices && apiResponseData.choices[0].message.content;
+        const chatGPTInput = {
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: `
+                  You are tasked with translating natural language search queries into Nodejs JSON Object format to fill the filterable options for real-estate search.
+                  Here are the options for it:
+
+                  'mls': string value and representing property id.
+                  'listedSince': unix timstamp representing the time when the property is listed
+                  
+                  'price': number array contains min, max price. the min, max limit is [100000, 2000000].
+                      example: if user types "under/less than $5m" or "under/less than 5m", then the max limit is 2000000 so the expected results should be [100000, 2000000]
+                              if user types "under/less $1m", then the expected results should be [100000, 1000000]
+                              if user types "more than $1m", then the expected results should be [1000000, 2000000]
+                  'sqft': number array contains min, max building area in square feet. the min, max limit is [0, 10000]
+                  'lotAcres': number array contains min, max lot acres. the min, max limit is [0, 50]
+                  'minYearBuilt' and 'maxYearBuilt: number of min, max year range when the property was built. the min limit is 1900 and the max limit is current year
+
+                  'rooms' and 'roomsOperator':
+                    'rooms': number of bedrooms
+                    'roomsOperator': representing how to operate number of rooms and avaialbe values are '=', '>' and '<'
+                    example: "2 rooms" or "2 bedrooms", then 'rooms' is 2 and 'roomsOperator' is '='
+                            "more than 2 rooms" or "more than 2 bedrooms", then 'rooms' is 2 and 'roomsOperator' is '>'
+                            "less than 2 rooms" or "less than 2 bedrooms", then 'rooms' is 2 and 'roomsOperator' is '<'
+                  'bathrooms' and 'bathroomsOperator':
+                    'bathrooms': number of bathrooms
+                    'bathroomsOperator': representing how to operate number of bathrooms and avaialbe values are '=', '>' and '<'
+                  'storeys' and 'storeysOperator':
+                    'storeys': number of storeys
+                    'storeysOperator': representing how to operate number of storeys and avaialbe values are '=', '>' and '<'
+                  'firePlaces' and 'firePlacesOperator':
+                    'firePlaces': number of firePlacesOperator
+                    'firePlacesOperator': representing how to operate number of firePlaces and avaialbe values are '=', '>' and '<'
+                  'parkingSpaces' and 'parkingSpacesOperator':
+                    'parkingSpaces': number of parkingSpacesOperator
+                    'parkingSpacesOperator': representing how to operate number of parkingSpaces and avaialbe values are '=', '>' and '<'
+
+                  'propertyType': string array. avaialble values are 'Condo', 'House' and 'Other'. no other values
+                  'walkingDistance': string array. avaialble values are 'School', 'Park' and 'Medical Facility'. no other values
+                    example: "nearby school", then ['School']
+
+                  Make sure the response does not contain the variable definition or trailing semicolon.
+                  I will be using json_decode to turn your response into the Json Object.
+                  Your task is to convert the following natural language query into a Javascript JSON Object Format.
+                  Make sure it the format can be parsed into a Json Object by Node.js JSON.parse function
+                `,
+            },
+            { role: 'user', content: userQuery },
+          ],
+        };
+
+        const apiEndpoint = 'https://api.openai.com/v1/chat/completions';
+        const apiResponse = await axios.post(apiEndpoint, chatGPTInput, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.CHATGPT_KEY}`,
+          },
+        });
+
+        const obj = processValue(apiResponse.data);
+        if (obj.mls) {
+          userQueryJson.mls = obj.mls;
+        }
+        if (obj.listedSince) {
+          userQueryJson.listedSince = obj.listedSince;
+        }
+        if (obj.price) {
+          userQueryJson.price = obj.price;
+        }
+        if (obj.sqft) {
+          userQueryJson.sqft = obj.sqft;
+        }
+        if (obj.lotAcres) {
+          userQueryJson.lotAcres = obj.lotAcres;
+        }
+        if (obj.minYearBuilt) {
+          userQueryJson.minYearBuilt = obj.minYearBuilt;
+        }
+        if (obj.maxYearBuilt) {
+          userQueryJson.maxYearBuilt = obj.maxYearBuilt;
+        }
+        if (obj.rooms && obj.roomsOperator) {
+          userQueryJson.rooms = obj.rooms;
+          userQueryJson.roomsOperator = obj.roomsOperator as Operator;
+        }
+        if (obj.bathrooms && obj.bathroomsOperator) {
+          userQueryJson.bathrooms = obj.bathrooms;
+          userQueryJson.bathroomsOperator = obj.bathroomsOperator as Operator;
+        }
+        if (obj.storeys && obj.storeysOperator) {
+          userQueryJson.storeys = obj.storeys;
+          userQueryJson.storeysOperator = obj.storeysOperator as Operator;
+        }
+        if (obj.firePlaces && obj.firePlacesOperator) {
+          userQueryJson.firePlaces = obj.firePlaces;
+          userQueryJson.firePlacesOperator = obj.firePlacesOperator as Operator;
+        }
+        if (obj.parkingSpaces && obj.parkingSpacesOperator) {
+          userQueryJson.parkingSpaces = obj.parkingSpaces;
+          userQueryJson.parkingSpacesOperator = obj.parkingSpacesOperator as Operator;
+        }
+        if (obj.propertyType) {
+          userQueryJson.propertyType = obj.propertyType;
+        }
+        if (obj.walkingDistance) {
+          userQueryJson.walkingDistance = obj.walkingDistance;
+        }
       }
     }
 
