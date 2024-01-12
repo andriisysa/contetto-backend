@@ -1248,7 +1248,7 @@ export const shareProperty = async (req: Request, res: Response) => {
           data: {
             name: contact.name,
             orgName: agentProfile.org?.name,
-            link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}?inviteCode=${inviteCode}&_next=/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+            link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}?inviteCode=${inviteCode}&orgName=${agentProfile.org?.name}&_next=/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
           },
         })
       );

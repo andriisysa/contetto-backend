@@ -287,7 +287,7 @@ export const shareContact = async (req: Request, res: Response) => {
     }
 
     return res.json({
-      link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}?inviteCode=${inviteCode}`,
+      link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}?inviteCode=${inviteCode}&orgName=${agentProfile.org?.name}`,
     });
   } catch (error) {
     console.log('shareContact error ===>', error);
