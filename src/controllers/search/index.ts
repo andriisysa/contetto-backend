@@ -3,20 +3,29 @@ import type { Request, Response } from 'express';
 import axios from 'axios';
 import { db } from '@/database';
 import { ObjectId, WithoutId } from 'mongodb';
+import { template } from 'lodash';
 import { ISearchResult, IUserQueryJson, NearBy, Operator } from '@/types/search.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
-import { getNow } from '@/utils';
+import { getNow, getRandomString } from '@/utils';
 import { IContact } from '@/types/contact.types';
 import { IUser } from '@/types/user.types';
 import { ICity } from '@/types/city.types';
 import { AreaUnit, acresToHectares, acresToSqft, acresToSqm, sqftToAcres, sqftToSqm } from '@/utils/sq';
+import { IRoom, RoomType } from '@/types/room.types';
+import { IMessage, ServerMessageType } from '@/types/message.types';
+import { io } from '@/socketServer';
+import { sendEmail } from '@/utils/email';
+import { sharePropertyTemplate } from '@/utils/email-templates';
 
 dotenv.config();
 
+const usersCol = db.collection<WithoutId<IUser>>('users');
 const listingsCol = db.collection('mlsListings');
 const searchResultsCol = db.collection<WithoutId<ISearchResult>>('searchResults');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 const citiesCol = db.collection<WithoutId<ICity>>('cities');
+const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
+const messagesCol = db.collection<WithoutId<IMessage>>('messages');
 
 const SERACH_LIMIT = 12;
 const MAX_RANGE = 100;
@@ -1102,6 +1111,150 @@ export const undoProperty = async (req: Request, res: Response) => {
     );
 
     return res.json({ property, searchResult: { ...searchResult, rejects, shortlists } });
+  } catch (error) {
+    console.log('rejectProperty error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const shareProperty = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+    const agentProfile = req.agentProfile as IAgentProfile;
+    const searchResult = req.searchResult as ISearchResult;
+    const { propertyId } = req.params;
+    const { contactId, message } = req.body;
+
+    const property = await listingsCol.findOne({ _id: new ObjectId(propertyId) });
+    if (!property) {
+      return res.status(404).json({ msg: 'No property found' });
+    }
+    const contact = await contactsCol.findOne({ _id: new ObjectId(contactId) });
+    if (!contact) {
+      return res.status(404).json({ msg: 'No contact found' });
+    }
+    if (!contact.email) {
+      return res.status(400).json({ msg: 'No email bad request' });
+    }
+
+    // share search results
+    await searchResultsCol.updateOne(
+      { _id: searchResult._id },
+      {
+        $set: {
+          contactId: contact._id,
+        },
+      }
+    );
+
+    // get dm & update dm
+    const dm = await roomsCol.findOne({
+      orgId: agentProfile.orgId,
+      usernames: {
+        $all: [user.username, contact.username || contact._id.toString()],
+      },
+      type: RoomType.dm,
+      deleted: false,
+    });
+    if (!dm) {
+      return res.status(404).json({ msg: 'No room found' });
+    }
+
+    // create message
+    const msgData: WithoutId<IMessage> = {
+      orgId: agentProfile.orgId,
+      roomId: dm._id,
+      msg: `Hi ${contact.name} Please check this listing located in ${property.City}, ${property.StateOrProvince}`,
+      senderName: user.username,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      attatchMents: [],
+      edited: false,
+      mentions: [],
+      channels: [],
+    };
+    const newMsg = await messagesCol.insertOne(msgData);
+
+    // get all users
+    const users = await usersCol.find({ username: { $in: dm.usernames } }).toArray();
+
+    // update room
+    const roomData: IRoom = {
+      ...dm,
+      userStatus: {
+        ...dm.userStatus,
+        ...dm.usernames.reduce(
+          (obj, un) => ({
+            ...obj,
+            [un]: {
+              online: !!users.find((u) => u.username === un)?.socketId,
+              notis: un !== user.username ? dm.userStatus[un].notis + 1 : dm.userStatus[un].notis,
+              unRead: true,
+              firstNotiMessage:
+                un !== user.username
+                  ? dm.userStatus[un].firstNotiMessage || newMsg.insertedId
+                  : dm.userStatus[un].firstNotiMessage,
+              firstUnReadmessage: dm.userStatus[un].firstUnReadmessage || newMsg.insertedId,
+              socketId: users.find((u) => u.username === un)?.socketId,
+            },
+          }),
+          {}
+        ),
+      },
+    };
+
+    if (dm.type === RoomType.dm && !dm.dmInitiated) {
+      roomData.dmInitiated = true;
+    }
+
+    await roomsCol.updateOne({ _id: dm._id }, { $set: roomData });
+
+    users.forEach((u) => {
+      if (io && u.socketId) {
+        // update room
+        io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
+
+        // send message
+        io.to(u.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
+      }
+    });
+
+    // send email
+    if (contact.username) {
+      await sendEmail(
+        contact.email,
+        'New listing shared',
+        undefined,
+        template(sharePropertyTemplate)({
+          data: {
+            name: contact.name,
+            orgName: agentProfile.org?.name,
+            link: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+          },
+        })
+      );
+    } else {
+      let inviteCode = contact.inviteCode;
+      if (!contact.inviteCode) {
+        inviteCode = getRandomString(10);
+        await contactsCol.updateOne({ _id: contact._id }, { $set: { inviteCode } });
+      }
+
+      await sendEmail(
+        contact.email,
+        'New listing shared',
+        undefined,
+        template(sharePropertyTemplate)({
+          data: {
+            name: contact.name,
+            orgName: agentProfile.org?.name,
+            link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}?inviteCode=${inviteCode}&_next=/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+          },
+        })
+      );
+    }
+
+    return res.json({ msg: 'Email sent' });
   } catch (error) {
     console.log('rejectProperty error ===>', error);
     return res.status(500).json({ msg: 'Server error' });

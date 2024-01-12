@@ -280,8 +280,11 @@ export const shareContact = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: `Contact is already binded to a user ${contact.username}` });
     }
 
-    const inviteCode = getRandomString(10);
-    await contactsCol.updateOne({ _id: contact._id }, { $set: { inviteCode } });
+    let inviteCode = contact.inviteCode;
+    if (!contact.inviteCode) {
+      inviteCode = getRandomString(10);
+      await contactsCol.updateOne({ _id: contact._id }, { $set: { inviteCode } });
+    }
 
     return res.json({
       link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}?inviteCode=${inviteCode}`,

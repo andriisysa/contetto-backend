@@ -43,6 +43,7 @@ import {
   shareSearch,
   shortlistProperty,
   undoProperty,
+  shareProperty,
 } from '@/controllers/search';
 import { searchAuth, searchResultAuth } from '@/middlewares/searchAuth';
 import { addMemberToChannel, createChannel, createDm, updateChannel } from '@/controllers/rooms';
@@ -96,6 +97,13 @@ orgsRouter
   .post('/:id/search-results/:searchId/property/:propertyId/shortlist', searchResultAuth(true), shortlistProperty)
   .post('/:id/search-results/:searchId/property/:propertyId/reject', searchResultAuth(true), rejectProperty)
   .post('/:id/search-results/:searchId/property/:propertyId/undo', searchResultAuth(true), undoProperty)
+  .post(
+    '/:id/search-results/:searchId/property/:propertyId/share',
+    validate(searchScheme.share),
+    orgRoleAuth(AgentRole.agent),
+    searchResultAuth(false),
+    shareProperty
+  )
 
   // channels/dms
   .post('/:id/channels', validate(channelScheme.create), orgRoleAuth(AgentRole.agent), createChannel)

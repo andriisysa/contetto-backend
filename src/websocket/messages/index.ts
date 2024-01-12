@@ -135,13 +135,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
       users.forEach((u) => {
         if (u.socketId) {
           // update room
-          if (u.username !== user.username) {
-            if (room.type === RoomType.dm && !room.dmInitiated) {
-              io.to(u.socketId).emit(ServerMessageType.channelJoin, roomData);
-            } else {
-              io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
-            }
-          }
+          io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
 
           // send message
           io.to(u.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
