@@ -90,7 +90,7 @@ export const createDm = async (req: Request, res: Response) => {
       .find({
         _id: { $in: (contacts as IRoomContact[]).map((contact) => new ObjectId(contact._id)) },
         orgId: agentProfile.orgId,
-        username: { $exists: true, $ne: undefined },
+        // username: { $exists: true, $ne: undefined },
       })
       .toArray();
     if (contactProfiles.length !== contacts.length) {
@@ -99,48 +99,87 @@ export const createDm = async (req: Request, res: Response) => {
 
     // check duplicated username
     const users = await usersCol
-      .find({ username: { $in: [...agentProfiles, ...contactProfiles].map((ac) => ac.username!) } })
+      .find({
+        username: {
+          $in: [
+            ...agentProfiles.map((ap) => ap.username),
+            ...contactProfiles.filter((cp) => cp.username).map((cp) => cp.username!),
+          ],
+        },
+      })
       .toArray();
 
-    if (users.length !== [...agentProfiles, ...contactProfiles].length) {
+    if (
+      [...users, ...contactProfiles.filter((cp) => !cp.username)].length !==
+      [...agentProfiles, ...contactProfiles].length
+    ) {
       return res.status(401).json({ msg: 'Invalid request! Duplicated username' });
     }
 
     // check dm already exists
     const dm = await roomsCol.findOne({
       orgId: agentProfile.orgId,
-      usernames: { $all: users.map((u) => u.username) },
+      usernames: {
+        $all: [
+          ...users.map((u) => u.username),
+          ...contactProfiles.filter((cp) => !cp.username).map((cp) => cp._id.toString()),
+        ],
+      },
       type: RoomType.dm,
+      deleted: false,
     });
+
     if (dm) return res.json(dm);
 
     const data: WithoutId<IRoom> = {
       orgId: agentProfile.orgId,
-      usernames: users.map((u) => u.username),
+      usernames: [
+        ...users.map((u) => u.username),
+        ...contactProfiles.filter((cp) => !cp.username).map((cp) => cp._id.toString()),
+      ],
       agents: agentProfiles.map((ap) => ({ _id: ap._id, username: ap.username })),
       contacts: contactProfiles.map((cp) => ({
         _id: cp._id,
+        name: cp.name,
         agentId: cp.agentProfileId,
-        username: cp.username!,
+        username: cp.username,
         agentName: cp.agentName,
       })),
       creator: user.username,
       type: RoomType.dm,
       dmInitiated: false,
-      userStatus: users.reduce(
-        (obj, u) => ({
-          ...obj,
-          [u.username]: {
-            online: !!u.socketId,
-            notis: 0,
-            unRead: false,
-            firstNotiMessage: undefined,
-            firstUnReadmessage: undefined,
-            socketId: u.socketId,
-          },
-        }),
-        {}
-      ),
+      userStatus: {
+        ...users.reduce(
+          (obj, u) => ({
+            ...obj,
+            [u.username]: {
+              online: !!u.socketId,
+              notis: 0,
+              unRead: false,
+              firstNotiMessage: undefined,
+              firstUnReadmessage: undefined,
+              socketId: u.socketId,
+            },
+          }),
+          {}
+        ),
+        ...contactProfiles
+          .filter((cp) => !cp.username)
+          .reduce(
+            (obj, cp) => ({
+              ...obj,
+              [cp._id.toString()]: {
+                online: false,
+                notis: 0,
+                unRead: false,
+                firstNotiMessage: undefined,
+                firstUnReadmessage: undefined,
+                socketId: undefined,
+              },
+            }),
+            {}
+          ),
+      },
       createdAt: getNow(),
       updatedAt: getNow(),
       deleted: false,
@@ -197,7 +236,7 @@ export const getAllRooms = async (req: Request, res: Response) => {
     const rooms = await roomsCol
       .find({
         usernames: user.username,
-        $or: [{ type: RoomType.channel }, { type: RoomType.dm, dmInitiated: true }],
+        // $or: [{ type: RoomType.channel }, { type: RoomType.dm, dmInitiated: true }],
         deleted: false,
       })
       .toArray();
@@ -286,6 +325,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
         ...room.contacts,
         ...filteredContacts.map((cp) => ({
           _id: cp._id,
+          name: cp.name,
           username: cp.username!,
           agentId: cp.agentProfileId,
           agentName: cp.agentName,

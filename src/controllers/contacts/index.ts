@@ -10,14 +10,23 @@ import { getNow, getRandomString } from '@/utils';
 import { ISearchResult } from '@/types/search.types';
 import { getImageExtension } from '@/utils/extension';
 import { uploadBase64ToS3 } from '@/utils/s3';
+import { IRoom, RoomType } from '@/types/room.types';
+import { io } from '@/socketServer';
+import { ServerMessageType } from '@/types/message.types';
 
+const usersCol = db.collection<WithoutId<IUser>>('users');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 const contactNotesCol = db.collection<WithoutId<IContactNote>>('contactNotes');
 const searchResultsCol = db.collection<WithoutId<ISearchResult>>('searchResults');
+const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
 
 export const createContact = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile as IAgentProfile;
+    const user = await usersCol.findOne({ username: agentProfile.username });
+    if (!user) {
+      return res.status(400).json({ msg: 'not found user' });
+    }
 
     let { name, email, phone, image, imageFileType, note = '' } = req.body;
 
@@ -50,6 +59,54 @@ export const createContact = async (req: Request, res: Response) => {
         note,
         timestamp: getNow(),
       });
+    }
+
+    // create dm with this contact
+    const roomData: WithoutId<IRoom> = {
+      orgId: agentProfile.orgId,
+      usernames: [agentProfile.username, newContact.insertedId.toString()],
+      agents: [
+        {
+          _id: agentProfile._id,
+          username: agentProfile.username,
+        },
+      ],
+      contacts: [
+        {
+          _id: newContact.insertedId,
+          name: name,
+          agentId: agentProfile._id,
+          agentName: agentProfile.username,
+        },
+      ],
+      creator: agentProfile.username,
+      type: RoomType.dm,
+      dmInitiated: false,
+      userStatus: {
+        [user.username]: {
+          online: !!user.socketId,
+          notis: 0,
+          unRead: false,
+          firstNotiMessage: undefined,
+          firstUnReadmessage: undefined,
+          socketId: user.socketId,
+        },
+        [newContact.insertedId.toString()]: {
+          online: false,
+          notis: 0,
+          unRead: false,
+          firstNotiMessage: undefined,
+          firstUnReadmessage: undefined,
+        },
+      },
+      createdAt: getNow(),
+      updatedAt: getNow(),
+      deleted: false,
+    };
+    const newRoom = await roomsCol.insertOne(roomData);
+
+    if (io && user.socketId) {
+      io.to(user.socketId).emit(ServerMessageType.dmCreate, { ...roomData, _id: newRoom.insertedId });
     }
 
     return res.json({ ...data, _id: newContact.insertedId });
@@ -196,6 +253,8 @@ export const deleteContact = async (req: Request, res: Response) => {
         },
       }
     );
+    // archive dm
+    await roomsCol.updateMany({ type: RoomType.dm, 'contacts._id': contact._id }, { $set: { deleted: true } });
 
     return res.json({ msg: 'deleted' });
   } catch (error) {
@@ -277,6 +336,43 @@ export const bindContact = async (req: Request, res: Response) => {
         },
       }
     );
+
+    // update dm
+    const rooms = await roomsCol.find({ 'contacts._id': contact._id }).toArray();
+    for (const room of rooms) {
+      // TODO: check duplicated rooms
+      const updateData = {
+        usernames: [...room.usernames.filter((un) => un !== contact._id.toString()), user.username],
+        contacts: [
+          ...room.contacts.filter((c) => c._id.toString() !== contact._id.toString()),
+          {
+            _id: contact._id,
+            name: contact.name,
+            agentId: contact.agentProfileId,
+            agentName: contact.agentName,
+            username: user.username,
+          },
+        ],
+        userStatus: {
+          ...room.userStatus,
+          [user.username]: {
+            ...room.userStatus[contact._id.toString()],
+            online: !!user.socketId,
+            socketId: user.socketId,
+          },
+        },
+      };
+      await roomsCol.updateOne(
+        { _id: room._id },
+        {
+          $set: updateData,
+        }
+      );
+
+      if (io && user.socketId) {
+        io.to(user.socketId).emit(ServerMessageType.channelUpdate, { ...room, ...updateData });
+      }
+    }
 
     return res.json({ ...contact, username: user.username });
   } catch (error) {

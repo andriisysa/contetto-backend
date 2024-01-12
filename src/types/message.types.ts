@@ -51,6 +51,8 @@ export enum ServerMessageType {
   // channel
   channelUpdate = 'channel:update',
   channelJoin = 'channel:join',
+  dmCreate = 'dm:create',
+  channelArchive = 'channel:archive',
 
   // message
   msgSend = 'msg:send',

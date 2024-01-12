@@ -103,23 +103,21 @@ export const messageHandler = (io: Server, socket: Socket) => {
         ...room,
         userStatus: {
           ...room.userStatus,
-          ...users
-            .filter((u) => u.username !== user.username)
+          ...room.usernames
+            .filter((un) => un !== user.username)
             .reduce(
-              (obj, u) => ({
+              (obj, un) => ({
                 ...obj,
-                [u.username]: {
-                  ...room.userStatus[u.username],
-                  online: !!u.socketId,
-                  notis: mentionUsers.includes(u.username)
-                    ? room.userStatus[u.username].notis + 1
-                    : room.userStatus[u.username].notis,
+                [un]: {
+                  ...room.userStatus[un],
+                  online: !!users.find((u) => u.username === un)?.socketId,
+                  notis: mentionUsers.includes(un) ? room.userStatus[un].notis + 1 : room.userStatus[un].notis,
                   unRead: true,
-                  firstNotiMessage: mentionUsers.includes(u.username)
-                    ? room.userStatus[u.username].firstNotiMessage || newMsg.insertedId
-                    : room.userStatus[u.username].firstNotiMessage,
-                  firstUnReadmessage: room.userStatus[u.username].firstUnReadmessage || newMsg.insertedId,
-                  socketId: u.socketId,
+                  firstNotiMessage: mentionUsers.includes(un)
+                    ? room.userStatus[un].firstNotiMessage || newMsg.insertedId
+                    : room.userStatus[un].firstNotiMessage,
+                  firstUnReadmessage: room.userStatus[un].firstUnReadmessage || newMsg.insertedId,
+                  socketId: users.find((u) => u.username === un)?.socketId,
                 },
               }),
               {}

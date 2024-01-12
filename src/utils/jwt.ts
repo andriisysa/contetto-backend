@@ -8,8 +8,8 @@ export function generateTokens(user: any): string | undefined {
   const secret: string | undefined = process.env.JWT_SECRET;
 
   if (secret) {
-    const access_token = jwt.sign(user, secret, { expiresIn: '1h' });
-    const refresh_token = jwt.sign(user, secret, { expiresIn: '3h' });
+    const access_token = jwt.sign(user, secret);
+    const refresh_token = jwt.sign(user, secret);
     return `${access_token} ${refresh_token}`;
   } else {
     console.log('JWT_SECRET is not defined');
