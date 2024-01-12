@@ -37,7 +37,7 @@ export const sendPush = async ({ name, contents, headings, userId, subtitle, url
 
     await axios.request(options);
     console.log('push sent to ', userId);
-  } catch (error) {
+  } catch (error: any) {
     console.log('send push error ===>', error?.response?.data);
   }
 };
