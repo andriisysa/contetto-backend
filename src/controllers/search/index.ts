@@ -473,7 +473,7 @@ export const searchListings = async (req: Request, res: Response) => {
       if (userQueryJson.propertyType.includes('Condo')) {
         matchQuery.$or.push({
           OwnershipType: {
-            $in: ['Strata', 'Condominium', 'Condominium/Strata', 'Leasehold Condo/Strata'],
+            $in: ['Condominium', 'Condominium/Strata', 'Leasehold Condo/Strata'],
           },
         });
       }
@@ -485,7 +485,7 @@ export const searchListings = async (req: Request, res: Response) => {
       if (userQueryJson.propertyType.includes('Other')) {
         matchQuery.$or.push({
           OwnershipType: {
-            $nin: ['Strata', 'Condominium', 'Condominium/Strata', 'Leasehold Condo/Strata', 'Freehold'],
+            $nin: ['Condominium', 'Condominium/Strata', 'Leasehold Condo/Strata', 'Freehold'],
           },
         });
       }
