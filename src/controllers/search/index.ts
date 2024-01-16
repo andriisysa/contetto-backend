@@ -472,9 +472,13 @@ export const searchListings = async (req: Request, res: Response) => {
 
       if (userQueryJson.propertyType.includes('Condo')) {
         matchQuery.$or.push({
-          OwnershipType: {
-            $in: ['Condominium', 'Condominium/Strata', 'Leasehold Condo/Strata'],
-          },
+          OwnershipType: { $in: ['Strata', 'Condominium', 'Condominium/Strata', 'Leasehold Condo/Strata'] },
+          $and: [
+            { PublicRemarks: { $not: /.*duplex.*/i } },
+            { PublicRemarks: { $not: /.*townhouse.*/i } },
+            { PublicRemarks: { $not: /.*Cabin.*/i } },
+            { PublicRemarks: /.*condo.*/i },
+          ],
         });
       }
       if (userQueryJson.propertyType.includes('House')) {
@@ -1170,6 +1174,8 @@ export const shareProperty = async (req: Request, res: Response) => {
       updatedAt: Date.now(),
       attatchMents: [],
       edited: false,
+      editable: false,
+      sharelink: `search-results/${searchResult._id}/properties/${property._id}`,
       mentions: [],
       channels: [],
     };

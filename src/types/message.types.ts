@@ -29,6 +29,8 @@ export interface IMessage {
   edited: boolean;
   mentions: string[]; // usernames
   channels: string[]; // channel names
+  editable: boolean;
+  sharelink?: string;
 }
 
 export interface IMessagePayload {

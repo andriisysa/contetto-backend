@@ -89,6 +89,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
         edited: false,
         mentions: mentions,
         channels: channels,
+        editable: true,
       };
       const newMsg = await messagesCol.insertOne(msgData);
 

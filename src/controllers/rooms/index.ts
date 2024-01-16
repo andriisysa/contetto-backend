@@ -312,6 +312,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
       // userStatus: [...existingUsers, ...newUsers].reduce((obj, u) => ({ ...obj, [u.username]: { read: false } }), {}),
       attatchMents: [],
       edited: false,
+      editable: false,
       mentions: [],
       channels: [],
     };
