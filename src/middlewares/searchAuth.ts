@@ -12,44 +12,44 @@ const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles'
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
 
-export const searchAuth = async (req: Request, res: Response, next: NextFunction) => {
+export const agentOrContact = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = req.user as IUser;
     const { id: orgId } = req.params;
-    const { contactId } = req.query; // contact should send contactId in the request
+    const { contactId: cgId } = req.query; // contact should send contactId in the request query or body
+    const { contactId: cpId } = req.body;
+    const contactId = cgId || cpId;
 
     const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
     if (!org) {
       return res.status(404).json({ msg: 'No org found' });
     }
 
-    let agentProfile: IAgentProfile | undefined = undefined;
-    let contact: IContact | undefined = undefined;
+    const agentProfile = await agentProfilesCol.findOne({
+      username: user.username,
+      orgId: org._id,
+      deleted: false,
+    });
 
+    let contact: IContact | undefined = undefined;
     if (contactId) {
       contact = (await contactsCol.findOne({
         _id: new ObjectId(String(contactId)),
         username: user.username,
         orgId: org._id,
       })) as IContact;
-    } else {
-      agentProfile = (await agentProfilesCol.findOne({
-        username: user.username,
-        orgId: org._id,
-        deleted: false,
-      })) as IAgentProfile;
     }
 
     if (!contact && !agentProfile) {
       return res.status(400).json({ msg: 'permissin denied' });
     }
 
-    req.agentProfile = agentProfile;
+    req.agentProfile = agentProfile as IAgentProfile;
     req.contact = contact;
 
     await next();
   } catch (error) {
-    console.log('searchAuth error ===>', error);
+    console.log('agentOrContact error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };

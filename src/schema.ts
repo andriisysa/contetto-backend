@@ -48,3 +48,7 @@ export const searchScheme = {
 export const channelScheme = {
   create: [body('name').isString().withMessage('Channel name is required!')],
 };
+
+export const mediaScheme = {
+  create: [body('name').isString().withMessage('Channel name is required!')],
+};

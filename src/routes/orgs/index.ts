@@ -1,7 +1,7 @@
 import express from 'express';
 
 import validate from '@/middlewares/validation';
-import { channelScheme, contactSchema, orgSchema, searchScheme } from '@/schema';
+import { channelScheme, contactSchema, mediaScheme, orgSchema, searchScheme } from '@/schema';
 import {
   acceptInvite,
   create,
@@ -45,9 +45,11 @@ import {
   undoProperty,
   shareProperty,
 } from '@/controllers/search';
-import { searchAuth, searchResultAuth } from '@/middlewares/searchAuth';
+import { agentOrContact, searchResultAuth } from '@/middlewares/searchAuth';
 import { addMemberToChannel, createChannel, createDm, updateChannel } from '@/controllers/rooms';
 import { loadMessages, loadMoreMessages } from '@/controllers/messages';
+import { createFolder, getFolder, getRootFolder } from '@/controllers/media';
+import { folderAuth } from '@/middlewares/folderAuth';
 
 const orgsRouter = express.Router();
 
@@ -84,11 +86,11 @@ orgsRouter
   .delete('/:id/contacts/:contactId/notes/:noteId', orgRoleAuth(AgentRole.agent), deleteNote)
 
   // search
-  .get('/:id/search', searchAuth, searchListings)
+  .get('/:id/search', agentOrContact, searchListings)
   .post('/:id/search-results/:searchId', validate(searchScheme.save), searchResultAuth(false), saveSearch)
   .post('/:id/search-results/:searchId/share', validate(searchScheme.share), orgRoleAuth(AgentRole.agent), shareSearch)
   // get search results for me whether it's an agent or a contact
-  .get('/:id/search-results', searchAuth, getMySearchResults)
+  .get('/:id/search-results', agentOrContact, getMySearchResults)
   // as an agent, get search results for a specific contact
   .get('/:id/search-results/contacts/:contactId', orgRoleAuth(AgentRole.agent), getContactSearchResults)
   .get('/:id/search-results/:searchId', searchResultAuth(true), getSearchProperties)
@@ -113,6 +115,12 @@ orgsRouter
 
   // messages
   .get('/:id/rooms/:roomId/messages', loadMessages)
-  .get('/:id/rooms/:roomId/messages/more', loadMoreMessages);
+  .get('/:id/rooms/:roomId/messages/more', loadMoreMessages)
+
+  // folders and files
+  .post('/:id/folders', validate(mediaScheme.create), agentOrContact, folderAuth, createFolder)
+  .get('/:id/folders', agentOrContact, getRootFolder)
+  .get('/:id/folders/:folderId', agentOrContact, folderAuth, getFolder)
+  .put('/:id/folders/:folderId', validate(mediaScheme.create), agentOrContact, folderAuth, getFolder);
 
 export default orgsRouter;
