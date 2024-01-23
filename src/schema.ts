@@ -50,5 +50,16 @@ export const channelScheme = {
 };
 
 export const mediaScheme = {
-  create: [body('name').isString().withMessage('Channel name is required!')],
+  create: [body('name').isString().withMessage('Name is required!')],
+  move: [body('targetFolderId').isString().withMessage('target folder id is required!')],
+  storeFile: [
+    body('name').isString().withMessage('Name is required!'),
+    body('s3Key').isString().withMessage('Key is required!'),
+    body('size').isNumeric().withMessage('File size is required!'),
+  ],
+  filesMove: [
+    body('fileIds').isArray({ min: 1 }).withMessage('file ids are required!'),
+    body('targetFolderId').isString().withMessage('target folder id is required!'),
+  ],
+  files: [body('fileIds').isArray({ min: 1 }).withMessage('file ids are required!')],
 };

@@ -15,8 +15,9 @@ export interface IFolder {
 }
 
 export interface IFile extends IFolder {
-  link: string;
+  s3Key: string;
   ext: string;
   mimetype: string;
   size: number; // byte
+  timestamp: number;
 }
