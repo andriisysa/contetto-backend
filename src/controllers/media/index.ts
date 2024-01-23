@@ -105,88 +105,89 @@ export const renameFolder = async (req: Request, res: Response) => {
   }
 };
 
-export const moveFolder = async (req: Request, res: Response) => {
+export const moveFiles = async (req: Request, res: Response) => {
   try {
-    const user = req.user as IUser;
     const agentProfile = req.agentProfile;
     const contact = req.contact;
-    const folder = req.folder as IFolder;
+    const targetFolder = req.folder as IFolder;
 
-    const { targetFolderId } = req.body;
+    const { folderIds = [], fileIds = [] } = req.body;
 
-    let targetFolder: IFolder | null = null;
-    if (agentProfile) {
-      targetFolder = await foldersCol.findOne({
-        _id: new ObjectId(targetFolderId),
-        orgId: agentProfile.orgId,
-        $or: [
-          { isShared: true },
-          { isShared: false, creator: user.username },
-          ...(contact ? [{ contactId: contact._id }] : []),
-        ],
-      });
-    } else {
-      targetFolder = await foldersCol.findOne({
-        _id: new ObjectId(targetFolderId),
-        orgId: contact!.orgId,
-        contactId: contact!._id,
-        forAgentOnly: false,
-      });
+    if (folderIds.length === 0 && fileIds.length === 0) {
+      return res.status(400).json({ msg: 'Bad request' });
     }
 
-    if (!targetFolder) {
-      return res.status(404).json({ msg: 'not found folder' });
+    const folders = await foldersCol
+      .find({
+        _id: { $in: folderIds.map((id: string) => new ObjectId(id)) },
+        orgId: (agentProfile?.orgId || contact?.orgId)!,
+        contactId: contact?._id,
+      })
+      .toArray();
+    const files = await filesCol
+      .find({
+        _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
+        orgId: (agentProfile?.orgId || contact?.orgId)!,
+        contactId: contact?._id,
+      })
+      .toArray();
+
+    if (folderIds.length !== folders.length || fileIds.length !== files.length) {
+      return res.status(400).json({ msg: 'Bad request' });
     }
 
-    // update current folder
-    await foldersCol.updateOne(
-      { _id: folder._id },
+    // move folders
+    for (const folder of folders) {
+      // update current folder
+      await foldersCol.updateOne(
+        { _id: folder._id },
+        { $set: { parentId: targetFolder._id, parentPaths: [...targetFolder.parentPaths, targetFolder._id] } }
+      );
+
+      // update subFolders
+      const subFolders = await foldersCol.find({ parentPaths: folder._id }).toArray();
+      const bulkOps = subFolders.map((sub) => ({
+        updateOne: {
+          filter: { _id: sub._id },
+          update: {
+            $set: {
+              parentPaths: [
+                ...targetFolder.parentPaths,
+                targetFolder._id,
+                ...sub.parentPaths.slice(sub.parentPaths.findIndex((id) => id.equals(folder._id))),
+              ],
+            },
+          },
+        },
+      }));
+
+      // Execute the bulk write operation
+      await foldersCol.bulkWrite(bulkOps);
+
+      // update subFiles
+      const subFiles = await filesCol.find({ parentPaths: folder._id }).toArray();
+      const fileBulkOps = subFiles.map((f) => ({
+        updateOne: {
+          filter: { _id: f._id },
+          update: {
+            $set: {
+              parentPaths: [
+                ...targetFolder.parentPaths,
+                targetFolder._id,
+                ...f.parentPaths.slice(f.parentPaths.findIndex((id) => id.equals(folder._id))),
+              ],
+            },
+          },
+        },
+      }));
+      await filesCol.bulkWrite(fileBulkOps);
+    }
+
+    // move files
+    await filesCol.updateMany(
+      { _id: { $in: files.map((file) => file._id) } },
       { $set: { parentId: targetFolder._id, parentPaths: [...targetFolder.parentPaths, targetFolder._id] } }
     );
-
-    // TODO: implement chunk later.. as mongo batch size limit is 100k. (note: Node.js Mongodb driver would handle this)
-    // update subFolders
-    const subFolders = await foldersCol.find({ parentPaths: folder._id }).toArray();
-    // for (const sub of subFolders) {
-    //   const index = sub.parentPaths.findIndex((id) => id.toString() === folder._id.toString());
-    //   const parentPaths = [...targetFolder.parentPaths, targetFolder._id, ...sub.parentPaths.slice(index)];
-    //   await foldersCol.updateOne({ _id: sub._id }, { $set: { parentPaths } });
-    // }
-    const bulkOps = subFolders.map((sub) => ({
-      updateOne: {
-        filter: { _id: sub._id },
-        update: {
-          $set: {
-            parentPaths: [
-              ...targetFolder.parentPaths,
-              targetFolder._id,
-              ...sub.parentPaths.slice(sub.parentPaths.findIndex((id) => id.equals(folder._id))),
-            ],
-          },
-        },
-      },
-    }));
-
-    // Execute the bulk write operation
-    await foldersCol.bulkWrite(bulkOps);
-
-    // update files
-    const files = await filesCol.find({ parentPaths: folder._id }).toArray();
-    const fileBulkOps = files.map((f) => ({
-      updateOne: {
-        filter: { _id: f._id },
-        update: {
-          $set: {
-            parentPaths: [
-              ...targetFolder.parentPaths,
-              targetFolder._id,
-              ...f.parentPaths.slice(f.parentPaths.findIndex((id) => id.equals(folder._id))),
-            ],
-          },
-        },
-      },
-    }));
-    await filesCol.bulkWrite(fileBulkOps);
 
     return res.json({ msg: 'success' });
   } catch (error) {
@@ -195,13 +196,47 @@ export const moveFolder = async (req: Request, res: Response) => {
   }
 };
 
-export const deleteFolder = async (req: Request, res: Response) => {
+export const deleteFiles = async (req: Request, res: Response) => {
   try {
-    const folder = req.folder as IFolder;
+    const agentProfile = req.agentProfile;
+    const contact = req.contact;
 
-    await foldersCol.deleteOne({ _id: folder._id });
-    await foldersCol.deleteMany({ parentPaths: folder._id });
-    await filesCol.deleteMany({ parentPaths: folder._id });
+    const { folderIds = [], fileIds = [] } = req.body;
+
+    if (folderIds.length === 0 && fileIds.length === 0) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
+    const folders = await foldersCol
+      .find({
+        _id: { $in: folderIds.map((id: string) => new ObjectId(id)) },
+        orgId: (agentProfile?.orgId || contact?.orgId)!,
+        contactId: contact?._id,
+      })
+      .toArray();
+    const files = await filesCol
+      .find({
+        _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
+        orgId: (agentProfile?.orgId || contact?.orgId)!,
+        contactId: contact?._id,
+      })
+      .toArray();
+
+    if (folderIds.length !== folders.length || fileIds.length !== files.length) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
+    // delete folders
+    for (const folder of folders) {
+      await foldersCol.deleteOne({ _id: folder._id });
+      await foldersCol.deleteMany({ parentPaths: folder._id });
+      await filesCol.deleteMany({ parentPaths: folder._id });
+    }
+
+    // delete files
+    await filesCol.deleteMany({
+      _id: { $in: files.map((file) => file._id) },
+    });
 
     return res.json({ msg: 'deleted' });
   } catch (error) {
@@ -251,7 +286,7 @@ export const storeFile = async (req: Request, res: Response) => {
       size,
       ext: parsed.ext,
       mimetype: mime.getType(name) as string,
-      timestamp: getNow()
+      timestamp: getNow(),
     };
 
     const newFile = await filesCol.insertOne(data);
@@ -349,110 +384,6 @@ export const renameFile = async (req: Request, res: Response) => {
     return res.json({ ...file, name });
   } catch (error) {
     console.log('renameFile error ===>', error);
-    return res.status(500).json({ msg: 'Server error' });
-  }
-};
-
-export const moveFiles = async (req: Request, res: Response) => {
-  try {
-    const user = req.user as IUser;
-    const agentProfile = req.agentProfile;
-    const contact = req.contact;
-    const folder = req.folder;
-
-    const { targetFolderId, fileIds = [] } = req.body;
-
-    let targetFolder: IFolder | null = null;
-    if (agentProfile) {
-      targetFolder = await foldersCol.findOne({
-        _id: new ObjectId(targetFolderId),
-        orgId: agentProfile.orgId,
-        $or: [
-          { isShared: true },
-          { isShared: false, creator: user.username },
-          ...(contact ? [{ contactId: contact._id }] : []),
-        ],
-      });
-    } else {
-      targetFolder = await foldersCol.findOne({
-        _id: new ObjectId(targetFolderId),
-        orgId: contact!.orgId,
-        contactId: contact!._id,
-        forAgentOnly: false,
-      });
-    }
-
-    if (!targetFolder) {
-      return res.status(404).json({ msg: 'not found folder' });
-    }
-
-    const files = await filesCol
-      .find({
-        _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
-        orgId: (agentProfile?.orgId || contact?.orgId)!,
-        contactId: contact?._id,
-        parentId: folder ? folder._id : '',
-      })
-      .toArray();
-
-    if (fileIds.length !== files.length) {
-      return res.status(400).json({ msg: 'Invalid request' });
-    }
-
-    // update files
-    const fileBulkOps = files.map((f) => ({
-      updateOne: {
-        filter: { _id: f._id },
-        update: {
-          $set: {
-            parentPaths: [
-              ...targetFolder.parentPaths,
-              targetFolder._id,
-              ...f.parentPaths.slice(
-                f.parentPaths.findIndex((id) => id.toString() === (folder ? folder._id.toString() : ''))
-              ),
-            ],
-          },
-        },
-      },
-    }));
-    await filesCol.bulkWrite(fileBulkOps);
-
-    return res.json({});
-  } catch (error) {
-    console.log('moveFiles error ===>', error);
-    return res.status(500).json({ msg: 'Server error' });
-  }
-};
-
-export const deleteFiles = async (req: Request, res: Response) => {
-  try {
-    const agentProfile = req.agentProfile;
-    const contact = req.contact;
-    const folder = req.folder;
-
-    const { fileIds = [] } = req.body;
-
-    const files = await filesCol
-      .find({
-        _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
-        orgId: (agentProfile?.orgId || contact?.orgId)!,
-        contactId: contact?._id,
-        parentId: folder ? folder._id : '',
-      })
-      .toArray();
-
-    if (fileIds.length !== files.length) {
-      return res.status(400).json({ msg: 'Invalid request' });
-    }
-
-    await filesCol.deleteMany({
-      _id: { $in: files.map((file) => file._id) },
-    });
-
-    return res.json({ msg: 'success' });
-  } catch (error) {
-    console.log('deleteFiles error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };

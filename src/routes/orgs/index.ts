@@ -51,13 +51,11 @@ import { loadMessages, loadMoreMessages } from '@/controllers/messages';
 import {
   createFolder,
   deleteFiles,
-  deleteFolder,
   downloadFileUrl,
   getFolder,
   getUploadFileUrl,
   loadfile,
   moveFiles,
-  moveFolder,
   renameFile,
   renameFolder,
   storeFile,
@@ -135,15 +133,14 @@ orgsRouter
   .get('/:id/folders', agentOrContact, getFolder)
   .get('/:id/folders/:folderId', agentOrContact, folderAuth, getFolder)
   .put('/:id/folders/:folderId', validate(mediaScheme.create), agentOrContact, folderAuth, renameFolder)
-  .post('/:id/folders/:folderId/move', validate(mediaScheme.move), agentOrContact, folderAuth, moveFolder)
-  .delete('/:id/folders/:folderId', agentOrContact, folderAuth, deleteFolder)
+  // here folderId is target folder id
+  .post('/:id/folders/:folderId/move', validate(mediaScheme.move), agentOrContact, folderAuth, moveFiles)
+  .delete('/:id/folders', validate(mediaScheme.move), agentOrContact, deleteFiles)
 
   .post('/:id/files/upload-url', validate(mediaScheme.create), agentOrContact, getUploadFileUrl)
   .post('/:id/files', validate(mediaScheme.storeFile), agentOrContact, folderAuth, storeFile)
   .post('/:id/files/:fileId/download-url', agentOrContact, folderAuth, downloadFileUrl)
   .get('/:id/files/:fileId/load', agentOrContact, folderAuth, loadfile)
-  .put('/:id/files/:fileId/rename', validate(mediaScheme.create), agentOrContact, folderAuth, renameFile)
-  .post('/:id/files/move', validate(mediaScheme.filesMove), agentOrContact, folderAuth, moveFiles)
-  .delete('/:id/files', validate(mediaScheme.files), agentOrContact, folderAuth, deleteFiles);
+  .put('/:id/files/:fileId/rename', validate(mediaScheme.create), agentOrContact, folderAuth, renameFile);
 
 export default orgsRouter;
