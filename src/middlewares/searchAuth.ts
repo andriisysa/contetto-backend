@@ -33,11 +33,15 @@ export const agentOrContact = async (req: Request, res: Response, next: NextFunc
 
     let contact: IContact | undefined = undefined;
     if (contactId) {
-      contact = (await contactsCol.findOne({
+      const query: Partial<IContact> = {
         _id: new ObjectId(String(contactId)),
         username: user.username,
         orgId: org._id,
-      })) as IContact;
+      };
+      if (agentProfile) {
+        query.agentProfileId = agentProfile._id;
+      }
+      contact = (await contactsCol.findOne(query)) as IContact;
     }
 
     if (!contact && !agentProfile) {

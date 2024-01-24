@@ -6,7 +6,7 @@ import path from 'path';
 import { db } from '@/database';
 import { IFile, IFolder } from '@/types/folder.types';
 import { IUser } from '@/types/user.types';
-import { getDownloadSignedUrl, getS3Object, getUploadSignedUrl } from '@/utils/s3';
+import { deleteS3Objects, getDownloadSignedUrl, getS3Object, getUploadSignedUrl } from '@/utils/s3';
 import { getNow } from '@/utils';
 
 const foldersCol = db.collection<WithoutId<IFolder>>('folders');
@@ -69,6 +69,7 @@ export const getFolder = async (req: Request, res: Response) => {
         } else {
           match.isShared = false;
           match.creator = user.username;
+          match.contactId = undefined;
         }
       }
     } else {
@@ -230,13 +231,17 @@ export const deleteFiles = async (req: Request, res: Response) => {
     for (const folder of folders) {
       await foldersCol.deleteOne({ _id: folder._id });
       await foldersCol.deleteMany({ parentPaths: folder._id });
+
+      const subFiles = filesCol.find({ parentPaths: folder._id }).toArray();
       await filesCol.deleteMany({ parentPaths: folder._id });
+      await deleteS3Objects((await subFiles).map((file) => file.s3Key));
     }
 
     // delete files
     await filesCol.deleteMany({
       _id: { $in: files.map((file) => file._id) },
     });
+    await deleteS3Objects(files.map((file) => file.s3Key));
 
     return res.json({ msg: 'deleted' });
   } catch (error) {
@@ -384,6 +389,48 @@ export const renameFile = async (req: Request, res: Response) => {
     return res.json({ ...file, name });
   } catch (error) {
     console.log('renameFile error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const shareFiles = async (req: Request, res: Response) => {
+  try {
+    const agentProfile = req.agentProfile;
+    const contact = req.contact;
+
+    if (!agentProfile || !contact) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
+    const { fileIds = [] } = req.body;
+
+    if (fileIds.length === 0) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
+    const files = await filesCol
+      .find({
+        _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
+        orgId: agentProfile._id,
+        creator: agentProfile.username,
+        contactId: undefined,
+        isShared: false,
+      })
+      .toArray();
+
+    if (fileIds.length !== files.length) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
+    // share files
+    await filesCol.updateMany(
+      { _id: { $in: files.map((file) => file._id) } },
+      { $set: { contactId: contact._id, parentId: '', parentPaths: [], forAgentOnly: false } }
+    );
+
+    return res.json({ msg: 'shared' });
+  } catch (error) {
+    console.log('deleteFolder error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };

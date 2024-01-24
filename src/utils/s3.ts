@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import mime from 'mime';
 import path from 'path';
@@ -73,4 +73,15 @@ export const getS3Object = async (Key: string) => {
   const { Body } = await s3.send(command);
 
   return Body;
+};
+
+export const deleteS3Objects = async (keys: string[]) => {
+  const command = new DeleteObjectsCommand({
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Delete: {
+      Objects: keys.map((key) => ({ Key: key })),
+    },
+  });
+
+  await s3.send(command);
 };

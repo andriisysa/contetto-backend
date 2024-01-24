@@ -60,4 +60,8 @@ export const mediaScheme = {
     body('s3Key').isString().withMessage('Key is required!'),
     body('size').isNumeric().withMessage('File size is required!'),
   ],
+  shareFiles: [
+    body('contactId').isString().withMessage('Contact is required!'),
+    body('fileIds').isArray({ min: 1 }).withMessage('fileIds are required!'),
+  ],
 };

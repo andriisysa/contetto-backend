@@ -12,6 +12,8 @@ export interface IFolder {
   parentFolders?: IFolder[];
   creator: string; // username
   agentName?: string; // exists if it's created by agent
+  // copied: boolean
+  // shares: IContact[]
 }
 
 export interface IFile extends IFolder {
