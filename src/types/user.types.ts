@@ -26,4 +26,5 @@ export interface IUser {
   updatedAt: number;
   deleted: boolean;
   socketId?: string;
+  isAdmin?: boolean;
 }

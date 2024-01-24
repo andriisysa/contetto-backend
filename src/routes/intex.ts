@@ -5,6 +5,8 @@ import orgsRouter from './orgs';
 import agentsRouter from './agents';
 import citiesRouter from './cities';
 import { getAllRooms } from '@/controllers/rooms';
+import adminAuth from '@/middlewares/adminAuth';
+import adminRouter from './admin';
 
 const router = express.Router();
 
@@ -16,6 +18,7 @@ router
   .use('/auth', authRouter)
   .use('/orgs', auth, orgsRouter)
   .use('/agents', auth, agentsRouter)
-  .use('/cities', auth, citiesRouter);
+  .use('/cities', auth, citiesRouter)
+  .use('/admin', adminAuth, adminRouter);
 
 export default router;
