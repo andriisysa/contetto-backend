@@ -76,6 +76,8 @@ export const getS3Object = async (Key: string) => {
 };
 
 export const deleteS3Objects = async (keys: string[]) => {
+  if (keys.length == 0) return;
+
   const command = new DeleteObjectsCommand({
     Bucket: process.env.AWS_BUCKET_NAME,
     Delete: {
