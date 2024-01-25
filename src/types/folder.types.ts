@@ -12,21 +12,32 @@ export interface IFolder {
   parentFolders?: IFolder[];
   creator: string; // username
   agentName?: string; // exists if it's created by agent
+  timestamp: number;
 }
 
 export enum FilePermission {
-  owner = 'owner',
   editor = 'editor',
   viewer = 'viewer',
   commentor = 'commentor',
 }
 
-export interface IFile extends IFolder {
+export interface IFileConnect {
+  id?: ObjectId; // agentId or contactId or null for org shared
+  username: string; // agent username or contact name
+  type: 'agent' | 'contact' | 'shared' | 'forAgentOnly';
+  permission: FilePermission;
+  parentId: ObjectId | ''; // parentId = '' means it's root folder
+}
+
+export interface IFile {
+  _id: ObjectId;
+  name: string;
+  orgId: ObjectId;
   s3Key: string;
   ext: string;
   mimetype: string;
   size: number; // byte
   timestamp: number;
-  copied: boolean; // if false, it's orignal file, if true, it's a file copied from orignal file
-  permission: FilePermission;
+  creator: string;
+  connections: IFileConnect[];
 }

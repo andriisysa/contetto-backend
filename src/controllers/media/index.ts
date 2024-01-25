@@ -4,13 +4,16 @@ import mime from 'mime';
 import path from 'path';
 
 import { db } from '@/database';
-import { FilePermission, IFile, IFolder } from '@/types/folder.types';
+import { FilePermission, IFile, IFileConnect, IFolder } from '@/types/folder.types';
 import { IUser } from '@/types/user.types';
 import { deleteS3Objects, getDownloadSignedUrl, getS3Object, getUploadSignedUrl } from '@/utils/s3';
 import { getNow } from '@/utils';
+import { IContact } from '@/types/contact.types';
+import { IAgentProfile } from '@/types/agentProfile.types';
 
 const foldersCol = db.collection<WithoutId<IFolder>>('folders');
 const filesCol = db.collection<WithoutId<IFile>>('files');
+const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 
 // folder operation
 export const createFolder = async (req: Request, res: Response) => {
@@ -32,6 +35,7 @@ export const createFolder = async (req: Request, res: Response) => {
       forAgentOnly,
       creator: user.username,
       agentName: agentProfile?.username,
+      timestamp: getNow(),
     };
 
     const newFolder = await foldersCol.insertOne(data);
@@ -52,38 +56,51 @@ export const getFolder = async (req: Request, res: Response) => {
 
     const { isShared = 'false', forAgentOnly = 'false' } = req.query;
 
-    let match: Partial<IFolder> = {};
+    let folderQuery: Partial<IFolder> = {
+      orgId: agentProfile?.orgId || contact?.orgId,
+      parentId: folder ? folder._id : '',
+    };
+    let fileQuery: any = {
+      orgId: (agentProfile?.orgId || contact?.orgId)!,
+    };
 
     if (agentProfile) {
-      match = {
-        orgId: agentProfile.orgId,
-        parentId: folder ? folder._id : '',
-      };
-
       if (contact) {
-        match.contactId = contact._id;
-        match.forAgentOnly = forAgentOnly === 'true';
+        folderQuery.contactId = contact._id;
+        folderQuery.forAgentOnly = forAgentOnly === 'true';
+
+        fileQuery['connections.id'] = contact._id;
+        fileQuery['connections.type'] = forAgentOnly === 'true' ? 'forAgentOnly' : 'contact';
+        fileQuery['connections.parentId'] = folder ? folder._id : '';
       } else {
         if (isShared === 'true') {
-          match.isShared = true;
+          folderQuery.isShared = true;
+          folderQuery.contactId = undefined;
+
+          fileQuery['connections.id'] = undefined;
+          fileQuery['connections.type'] = 'shared';
+          fileQuery['connections.parentId'] = folder ? folder._id : '';
         } else {
-          match.isShared = false;
-          match.creator = user.username;
-          match.contactId = undefined;
+          folderQuery.isShared = false;
+          folderQuery.creator = user.username;
+          folderQuery.contactId = undefined;
+
+          fileQuery['connections.id'] = agentProfile._id;
+          fileQuery['connections.type'] = 'agent';
+          fileQuery['connections.parentId'] = folder ? folder._id : '';
         }
       }
     } else {
-      match = {
-        orgId: contact!.orgId,
-        contactId: contact!._id,
-        forAgentOnly: false,
-        parentId: folder ? folder._id : '',
-      };
-    }
-    console.log(match)
+      folderQuery.contactId = contact!._id;
+      folderQuery.forAgentOnly = false;
 
-    const subFolders = await foldersCol.find(match).toArray();
-    const files = await filesCol.find(match).toArray();
+      fileQuery['connections.id'] = contact?._id;
+      fileQuery['connections.type'] = 'contact';
+      fileQuery['connections.parentId'] = folder ? folder._id : '';
+    }
+
+    const subFolders = await foldersCol.find(folderQuery).toArray();
+    const files = await filesCol.find(fileQuery).toArray();
 
     return res.json({ folder, subFolders, files });
   } catch (error) {
@@ -113,7 +130,7 @@ export const moveFiles = async (req: Request, res: Response) => {
     const contact = req.contact;
     const targetFolder = req.folder as IFolder;
 
-    const { folderIds = [], fileIds = [] } = req.body;
+    const { folderIds = [], fileIds = [], isShared = false, forAgentOnly = false } = req.body;
 
     if (folderIds.length === 0 && fileIds.length === 0) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -126,13 +143,30 @@ export const moveFiles = async (req: Request, res: Response) => {
         contactId: contact?._id,
       })
       .toArray();
-    const files = await filesCol
-      .find({
-        _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
-        orgId: (agentProfile?.orgId || contact?.orgId)!,
-        contactId: contact?._id,
-      })
-      .toArray();
+
+    const fileQuery: any = {
+      _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
+      orgId: (agentProfile?.orgId || contact?.orgId)!,
+    };
+    if (agentProfile) {
+      if (contact) {
+        fileQuery['connections.id'] = contact._id;
+        fileQuery['connections.type'] = forAgentOnly ? 'forAgentOnly' : 'contact';
+      } else {
+        if (isShared) {
+          fileQuery['connections.id'] = undefined;
+          fileQuery['connections.type'] = 'shared';
+        } else {
+          fileQuery['connections.id'] = agentProfile._id;
+          fileQuery['connections.type'] = 'agent';
+        }
+      }
+    } else {
+      fileQuery['connections.id'] = contact?._id;
+      fileQuery['connections.type'] = 'contact';
+    }
+
+    const files = await filesCol.find(fileQuery).toArray();
 
     if (folderIds.length !== folders.length || fileIds.length !== files.length) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -165,30 +199,16 @@ export const moveFiles = async (req: Request, res: Response) => {
 
       // Execute the bulk write operation
       await foldersCol.bulkWrite(bulkOps);
-
-      // update subFiles
-      const subFiles = await filesCol.find({ parentPaths: folder._id }).toArray();
-      const fileBulkOps = subFiles.map((f) => ({
-        updateOne: {
-          filter: { _id: f._id },
-          update: {
-            $set: {
-              parentPaths: [
-                ...targetFolder.parentPaths,
-                targetFolder._id,
-                ...f.parentPaths.slice(f.parentPaths.findIndex((id) => id.equals(folder._id))),
-              ],
-            },
-          },
-        },
-      }));
-      await filesCol.bulkWrite(fileBulkOps);
     }
 
     // move files
     await filesCol.updateMany(
-      { _id: { $in: files.map((file) => file._id) } },
-      { $set: { parentId: targetFolder._id, parentPaths: [...targetFolder.parentPaths, targetFolder._id] } }
+      { ...fileQuery },
+      {
+        $set: {
+          'connections.&.parentId': targetFolder._id,
+        },
+      }
     );
 
     return res.json({ msg: 'success' });
@@ -203,7 +223,7 @@ export const deleteFiles = async (req: Request, res: Response) => {
     const agentProfile = req.agentProfile;
     const contact = req.contact;
 
-    const { folderIds = [], fileIds = [] } = req.body;
+    const { folderIds = [], fileIds = [], isShared = false, forAgentOnly = false } = req.body;
 
     if (folderIds.length === 0 && fileIds.length === 0) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -216,13 +236,29 @@ export const deleteFiles = async (req: Request, res: Response) => {
         contactId: contact?._id,
       })
       .toArray();
-    const files = await filesCol
-      .find({
-        _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
-        orgId: (agentProfile?.orgId || contact?.orgId)!,
-        contactId: contact?._id,
-      })
-      .toArray();
+    const fileQuery: any = {
+      _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
+      orgId: (agentProfile?.orgId || contact?.orgId)!,
+    };
+    if (agentProfile) {
+      if (contact) {
+        fileQuery['connections.id'] = contact._id;
+        fileQuery['connections.type'] = forAgentOnly ? 'forAgentOnly' : 'contact';
+      } else {
+        if (isShared) {
+          fileQuery['connections.type'] = 'shared';
+        } else {
+          fileQuery['connections.id'] = agentProfile._id;
+          fileQuery['connections.type'] = 'agent';
+        }
+      }
+    } else {
+      fileQuery['connections.id'] = contact?._id;
+      fileQuery['connections.type'] = 'contact';
+      fileQuery['connections.permission'] = FilePermission.editor;
+    }
+
+    const files = await filesCol.find(fileQuery).toArray();
 
     if (folderIds.length !== folders.length || fileIds.length !== files.length) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -230,12 +266,31 @@ export const deleteFiles = async (req: Request, res: Response) => {
 
     // delete folders
     for (const folder of folders) {
-      await foldersCol.deleteOne({ _id: folder._id });
-      await foldersCol.deleteMany({ parentPaths: folder._id });
+      const subFolders = await foldersCol.find({ parentPaths: folder._id }).toArray();
+      const allSubfiles = await filesCol
+        .find({ 'connections.parentId': { $in: subFolders.map((f) => f._id) } })
+        .toArray();
 
-      const subFiles = filesCol.find({ parentPaths: folder._id }).toArray();
-      await filesCol.deleteMany({ parentPaths: folder._id });
-      await deleteS3Objects((await subFiles).map((file) => file.s3Key));
+      const query: any = {};
+      if (!agentProfile) {
+        query['connections.id'] = contact!._id;
+        query['connections.parentId'] = { $in: subFolders.map((f) => f._id) };
+        query['connections.permission'] = FilePermission.editor;
+      }
+      const editableSubfiles = await filesCol.find(query).toArray();
+      if (editableSubfiles.length !== allSubfiles.length) {
+        return res.status(404).json({ msg: "there are some files that you don't have permission to delete" });
+      }
+
+      // delete all subfiles
+      await filesCol.deleteMany({ _id: { $in: allSubfiles.map((file) => file._id) } });
+      await deleteS3Objects(allSubfiles.map((file) => file.s3Key));
+
+      // delete all subfolders
+      await foldersCol.deleteMany({ _id: { $in: subFolders.map((sf) => sf._id) } });
+
+      // delete current folder
+      await foldersCol.deleteOne({ _id: folder._id });
     }
 
     // delete files
@@ -281,21 +336,60 @@ export const storeFile = async (req: Request, res: Response) => {
     const data: WithoutId<IFile> = {
       name,
       orgId: (agentProfile?.orgId || contact?.orgId)!,
-      isShared,
-      contactId: contact?._id,
-      parentId: folder ? folder._id : '',
-      parentPaths: folder ? [...folder.parentPaths, folder._id] : [],
-      forAgentOnly,
       creator: user.username,
-      agentName: agentProfile?.username,
       s3Key,
       size,
       ext: parsed.ext,
       mimetype: mime.getType(name) as string,
       timestamp: getNow(),
-      copied: false,
-      permission: FilePermission.owner,
+      connections: [],
     };
+
+    if (agentProfile) {
+      if (contact) {
+        data.connections = [
+          {
+            id: contact._id,
+            username: contact.name,
+            type: forAgentOnly ? 'forAgentOnly' : 'contact',
+            permission: FilePermission.editor,
+            parentId: folder ? folder._id : '',
+          },
+        ];
+      } else {
+        if (isShared) {
+          data.connections = [
+            {
+              id: undefined,
+              username: undefined,
+              type: 'shared',
+              permission: FilePermission.editor,
+              parentId: folder ? folder._id : '',
+            },
+          ];
+        } else {
+          data.connections = [
+            {
+              id: agentProfile._id,
+              username: agentProfile.username,
+              type: 'agent',
+              permission: FilePermission.editor,
+              parentId: folder ? folder._id : '',
+            },
+          ];
+        }
+      }
+    } else {
+      data.connections = [
+        {
+          id: contact?._id,
+          username: contact?.name,
+          type: 'contact',
+          permission: FilePermission.editor,
+          parentId: folder ? folder._id : '',
+        },
+      ];
+    }
 
     const newFile = await filesCol.insertOne(data);
 
@@ -310,16 +404,34 @@ export const downloadFileUrl = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile;
     const contact = req.contact;
-    const folder = req.folder;
 
     const { fileId } = req.params;
+    const { isShared = false, forAgentOnly = false } = req.body;
 
-    const file = await filesCol.findOne({
+    const query: any = {
       _id: new ObjectId(fileId),
       orgId: (agentProfile?.orgId || contact?.orgId)!,
-      contactId: contact?._id,
-      parentId: folder ? folder._id : '',
-    });
+    };
+
+    if (agentProfile) {
+      if (contact) {
+        query['connections.id'] = contact._id;
+        query['connections.type'] = forAgentOnly ? 'forAgentOnly' : 'contact';
+      } else {
+        if (isShared) {
+          query['connections.id'] = undefined;
+          query['connections.type'] = 'shared';
+        } else {
+          query['connections.id'] = agentProfile._id;
+          query['connections.type'] = 'agent';
+        }
+      }
+    } else {
+      query['connections.id'] = contact?._id;
+      query['connections.type'] = 'contact';
+    }
+
+    const file = await filesCol.findOne(query);
 
     if (!file) {
       return res.status(404).json({ msg: 'Not found file' });
@@ -338,16 +450,34 @@ export const loadfile = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile;
     const contact = req.contact;
-    const folder = req.folder;
 
     const { fileId } = req.params;
 
-    const file = await filesCol.findOne({
+    const { isShared = 'false', forAgentOnly = 'false' } = req.query;
+
+    const query: any = {
       _id: new ObjectId(fileId),
       orgId: (agentProfile?.orgId || contact?.orgId)!,
-      contactId: contact?._id,
-      parentId: folder ? folder._id : '',
-    });
+    };
+    if (agentProfile) {
+      if (contact) {
+        query['connections.id'] = contact._id;
+        query['connections.type'] = forAgentOnly === 'true' ? 'forAgentOnly' : 'contact';
+      } else {
+        if (isShared === 'true') {
+          query['connections.id'] = undefined;
+          query['connections.type'] = 'shared';
+        } else {
+          query['connections.id'] = agentProfile._id;
+          query['connections.type'] = 'agent';
+        }
+      }
+    } else {
+      query['connections.id'] = contact?._id;
+      query['connections.type'] = 'contact';
+    }
+
+    const file = await filesCol.findOne(query);
 
     if (!file) {
       return res.status(404).json({ msg: 'Not found file' });
@@ -371,18 +501,33 @@ export const renameFile = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile;
     const contact = req.contact;
-    const folder = req.folder;
 
     const { fileId } = req.params;
-    const { name } = req.body;
+    const { name, isShared = false, forAgentOnly = false } = req.body;
 
-    const file = await filesCol.findOne({
+    const query: any = {
       _id: new ObjectId(fileId),
       orgId: (agentProfile?.orgId || contact?.orgId)!,
-      contactId: contact?._id,
-      parentId: folder ? folder._id : '',
-    });
+    };
+    if (agentProfile) {
+      if (contact) {
+        query['connections.id'] = contact._id;
+        query['connections.type'] = forAgentOnly ? 'forAgentOnly' : 'contact';
+      } else {
+        if (isShared) {
+          query['connections.id'] = undefined;
+          query['connections.type'] = 'shared';
+        } else {
+          query['connections.id'] = agentProfile._id;
+          query['connections.type'] = 'agent';
+        }
+      }
+    } else {
+      query['connections.id'] = contact?._id;
+      query['connections.type'] = 'contact';
+    }
 
+    const file = await filesCol.findOne(query);
     if (!file) {
       return res.status(404).json({ msg: 'Not found file' });
     }
@@ -396,40 +541,50 @@ export const renameFile = async (req: Request, res: Response) => {
   }
 };
 
-export const shareFiles = async (req: Request, res: Response) => {
+export const shareFile = async (req: Request, res: Response) => {
   try {
-    const agentProfile = req.agentProfile;
-    const contact = req.contact;
+    const agentProfile = req.agentProfile as IAgentProfile;
 
-    if (!agentProfile || !contact) {
-      return res.status(400).json({ msg: 'Bad request' });
-    }
+    const { fileId } = req.params;
+    const { contactIds = [], permission } = req.body;
 
-    const { fileIds = [] } = req.body;
-
-    if (fileIds.length === 0) {
-      return res.status(400).json({ msg: 'Bad request' });
-    }
-
-    const files = await filesCol
-      .find({
-        _id: { $in: fileIds.map((id: string) => new ObjectId(id)) },
-        orgId: agentProfile._id,
-        creator: agentProfile.username,
-        contactId: undefined,
-        isShared: false,
-      })
+    const contacts = await contactsCol
+      .find({ _id: { $in: contactIds.map((cid: string) => new ObjectId(cid)) }, agentProfileId: agentProfile._id })
       .toArray();
 
-    if (fileIds.length !== files.length) {
+    if (contactIds.length !== contacts.length) {
+      return res.status(400).json({ msg: 'bad request' });
+    }
+
+    const query: any = {
+      _id: new ObjectId(fileId),
+      orgId: agentProfile.orgId,
+      'connections.id': agentProfile._id,
+      'connections.type': 'agent',
+    };
+
+    const file = await filesCol.findOne(query);
+    if (!file) {
       return res.status(400).json({ msg: 'Bad request' });
     }
 
+    const connections = [
+      ...file.connections.map((con) =>
+        contacts.find((contact) => contact._id.toString() === con.id?.toString()) ? { ...con, permission } : con
+      ),
+      ...contacts
+        .filter((contact) => file.connections.find((con) => contact._id.toString() !== con.id?.toString()))
+        .map((contact) => ({
+          id: contact._id,
+          username: contact.name,
+          type: 'contact',
+          permission: permission as FilePermission,
+          parentId: '',
+        })),
+    ] as IFileConnect[];
+
     // share files
-    await filesCol.updateMany(
-      { _id: { $in: files.map((file) => file._id) } },
-      { $set: { contactId: contact._id, parentId: '', parentPaths: [], forAgentOnly: false } }
-    );
+    await filesCol.updateOne({ _id: file._id }, { $set: { connections } });
 
     return res.json({ msg: 'shared' });
   } catch (error) {
