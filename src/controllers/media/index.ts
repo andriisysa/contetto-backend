@@ -4,7 +4,7 @@ import mime from 'mime';
 import path from 'path';
 
 import { db } from '@/database';
-import { IFile, IFolder } from '@/types/folder.types';
+import { FilePermission, IFile, IFolder } from '@/types/folder.types';
 import { IUser } from '@/types/user.types';
 import { deleteS3Objects, getDownloadSignedUrl, getS3Object, getUploadSignedUrl } from '@/utils/s3';
 import { getNow } from '@/utils';
@@ -80,6 +80,7 @@ export const getFolder = async (req: Request, res: Response) => {
         parentId: folder ? folder._id : '',
       };
     }
+    console.log(match)
 
     const subFolders = await foldersCol.find(match).toArray();
     const files = await filesCol.find(match).toArray();
@@ -292,6 +293,8 @@ export const storeFile = async (req: Request, res: Response) => {
       ext: parsed.ext,
       mimetype: mime.getType(name) as string,
       timestamp: getNow(),
+      copied: false,
+      permission: FilePermission.owner,
     };
 
     const newFile = await filesCol.insertOne(data);

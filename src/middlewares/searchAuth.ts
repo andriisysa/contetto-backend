@@ -16,39 +16,43 @@ export const agentOrContact = async (req: Request, res: Response, next: NextFunc
   try {
     const user = req.user as IUser;
     const { id: orgId } = req.params;
-    const { contactId: cgId } = req.query; // contact should send contactId in the request query or body
-    const { contactId: cpId } = req.body;
-    const contactId = cgId || cpId;
+    const { agentId, contactId } = req.query; // contact should send contactId in the request
 
     const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
     if (!org) {
       return res.status(404).json({ msg: 'No org found' });
     }
 
-    const agentProfile = await agentProfilesCol.findOne({
-      username: user.username,
-      orgId: org._id,
-      deleted: false,
-    });
-
+    let agentProfile: IAgentProfile | undefined = undefined;
     let contact: IContact | undefined = undefined;
+
+    if (agentId) {
+      agentProfile = (await agentProfilesCol.findOne({
+        _id: new ObjectId(String(agentId)),
+        username: user.username,
+        orgId: org._id,
+        deleted: false,
+      })) as IAgentProfile;
+    }
+
     if (contactId) {
-      const query: Partial<IContact> = {
+      contact = (await contactsCol.findOne({
         _id: new ObjectId(String(contactId)),
         username: user.username,
         orgId: org._id,
-      };
-      if (agentProfile) {
-        query.agentProfileId = agentProfile._id;
+      })) as IContact;
+      if (contact && agentProfile) {
+        if (agentProfile._id.toString() !== contact.agentProfileId.toString()) {
+          return res.status(400).json({ msg: 'permissin denied' });
+        }
       }
-      contact = (await contactsCol.findOne(query)) as IContact;
     }
 
     if (!contact && !agentProfile) {
       return res.status(400).json({ msg: 'permissin denied' });
     }
 
-    req.agentProfile = agentProfile as IAgentProfile;
+    req.agentProfile = agentProfile;
     req.contact = contact;
 
     await next();

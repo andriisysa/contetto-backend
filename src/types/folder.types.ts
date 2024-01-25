@@ -12,8 +12,13 @@ export interface IFolder {
   parentFolders?: IFolder[];
   creator: string; // username
   agentName?: string; // exists if it's created by agent
-  // copied: boolean
-  // shares: IContact[]
+}
+
+export enum FilePermission {
+  owner = 'owner',
+  editor = 'editor',
+  viewer = 'viewer',
+  commentor = 'commentor',
 }
 
 export interface IFile extends IFolder {
@@ -22,4 +27,6 @@ export interface IFile extends IFolder {
   mimetype: string;
   size: number; // byte
   timestamp: number;
+  copied: boolean; // if false, it's orignal file, if true, it's a file copied from orignal file
+  permission: FilePermission;
 }
