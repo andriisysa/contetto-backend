@@ -16,7 +16,11 @@ export const agentOrContact = async (req: Request, res: Response, next: NextFunc
   try {
     const user = req.user as IUser;
     const { id: orgId } = req.params;
-    const { agentId, contactId } = req.query; // contact should send contactId in the request
+    const { agentId: qaId, contactId: qcId } = req.query;
+    const { agentId: baId, contactId: bcId } = req.body;
+
+    const agentId = qaId || baId;
+    const contactId = qcId || bcId;
 
     const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
     if (!org) {
