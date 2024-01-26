@@ -69,34 +69,50 @@ export const getFolder = async (req: Request, res: Response) => {
         folderQuery.contactId = contact._id;
         folderQuery.forAgentOnly = forAgentOnly === 'true';
 
-        fileQuery['connections.id'] = contact._id;
-        fileQuery['connections.type'] = forAgentOnly === 'true' ? 'forAgentOnly' : 'contact';
-        fileQuery['connections.parentId'] = folder ? folder._id : '';
+        fileQuery.connections = {
+          $elemMatch: {
+            id: contact._id,
+            type: forAgentOnly === 'true' ? 'forAgentOnly' : 'contact',
+            parentId: folder ? folder._id : '',
+          },
+        };
       } else {
         if (isShared === 'true') {
           folderQuery.isShared = true;
           folderQuery.contactId = undefined;
 
-          fileQuery['connections.id'] = undefined;
-          fileQuery['connections.type'] = 'shared';
-          fileQuery['connections.parentId'] = folder ? folder._id : '';
+          fileQuery.connections = {
+            $elemMatch: {
+              id: undefined,
+              type: 'shared',
+              parentId: folder ? folder._id : '',
+            },
+          };
         } else {
           folderQuery.isShared = false;
           folderQuery.creator = user.username;
           folderQuery.contactId = undefined;
 
-          fileQuery['connections.id'] = agentProfile._id;
-          fileQuery['connections.type'] = 'agent';
-          fileQuery['connections.parentId'] = folder ? folder._id : '';
+          fileQuery.connections = {
+            $elemMatch: {
+              id: agentProfile._id,
+              type: 'agent',
+              parentId: folder ? folder._id : '',
+            },
+          };
         }
       }
     } else {
       folderQuery.contactId = contact!._id;
       folderQuery.forAgentOnly = false;
 
-      fileQuery['connections.id'] = contact?._id;
-      fileQuery['connections.type'] = 'contact';
-      fileQuery['connections.parentId'] = folder ? folder._id : '';
+      fileQuery.connections = {
+        $elemMatch: {
+          id: contact?._id,
+          type: 'contact',
+          parentId: folder ? folder._id : '',
+        },
+      };
     }
 
     const subFolders = await foldersCol.find(folderQuery).toArray();
@@ -150,20 +166,36 @@ export const moveFiles = async (req: Request, res: Response) => {
     };
     if (agentProfile) {
       if (contact) {
-        fileQuery['connections.id'] = contact._id;
-        fileQuery['connections.type'] = forAgentOnly ? 'forAgentOnly' : 'contact';
+        fileQuery.connections = {
+          $elemMatch: {
+            id: contact?._id,
+            type: forAgentOnly ? 'forAgentOnly' : 'contact',
+          },
+        };
       } else {
         if (isShared) {
-          fileQuery['connections.id'] = undefined;
-          fileQuery['connections.type'] = 'shared';
+          fileQuery.connections = {
+            $elemMatch: {
+              id: undefined,
+              type: 'shared',
+            },
+          };
         } else {
-          fileQuery['connections.id'] = agentProfile._id;
-          fileQuery['connections.type'] = 'agent';
+          fileQuery.connections = {
+            $elemMatch: {
+              id: agentProfile._id,
+              type: 'agent',
+            },
+          };
         }
       }
     } else {
-      fileQuery['connections.id'] = contact?._id;
-      fileQuery['connections.type'] = 'contact';
+      fileQuery.connections = {
+        $elemMatch: {
+          id: contact?._id,
+          type: 'contact',
+        },
+      };
     }
 
     const files = await filesCol.find(fileQuery).toArray();
@@ -242,40 +274,96 @@ export const deleteFiles = async (req: Request, res: Response) => {
     };
     if (agentProfile) {
       if (contact) {
-        fileQuery['connections.id'] = contact._id;
-        fileQuery['connections.type'] = forAgentOnly ? 'forAgentOnly' : 'contact';
+        fileQuery.connections = {
+          $elemMatch: {
+            id: contact._id,
+            type: forAgentOnly ? 'forAgentOnly' : 'contact',
+          },
+        };
       } else {
         if (isShared) {
-          fileQuery['connections.type'] = 'shared';
+          fileQuery.connections = {
+            $elemMatch: {
+              id: undefined,
+              type: 'shared',
+            },
+          };
         } else {
-          fileQuery['connections.id'] = agentProfile._id;
-          fileQuery['connections.type'] = 'agent';
+          fileQuery.connections = {
+            $elemMatch: {
+              id: agentProfile._id,
+              type: 'agent',
+            },
+          };
         }
       }
     } else {
-      fileQuery['connections.id'] = contact?._id;
-      fileQuery['connections.type'] = 'contact';
-      fileQuery['connections.permission'] = FilePermission.editor;
+      fileQuery.connections = {
+        $elemMatch: {
+          id: contact?._id,
+          type: 'contact',
+          permission: FilePermission.editor,
+        },
+      };
     }
 
     const files = await filesCol.find(fileQuery).toArray();
 
     if (folderIds.length !== folders.length || fileIds.length !== files.length) {
-      return res.status(400).json({ msg: 'Bad request' });
+      return res.status(400).json({ msg: 'You do not have permission' });
     }
 
     // delete folders
     for (const folder of folders) {
       const subFolders = await foldersCol.find({ parentPaths: folder._id }).toArray();
       const allSubfiles = await filesCol
-        .find({ 'connections.parentId': { $in: subFolders.map((f) => f._id) } })
+        .find({
+          connections: {
+            $elemMatch: {
+              parentId: { $in: [...subFolders.map((f) => f._id), folder._id] },
+            },
+          },
+        })
         .toArray();
 
       const query: any = {};
-      if (!agentProfile) {
-        query['connections.id'] = contact!._id;
-        query['connections.parentId'] = { $in: subFolders.map((f) => f._id) };
-        query['connections.permission'] = FilePermission.editor;
+      if (agentProfile) {
+        if (contact) {
+          query.connections = {
+            $elemMatch: {
+              id: contact._id,
+              type: forAgentOnly ? 'forAgentOnly' : 'contact',
+              parentId: { $in: [...subFolders.map((f) => f._id), folder._id] },
+            },
+          };
+        } else {
+          if (isShared) {
+            query.connections = {
+              $elemMatch: {
+                id: undefined,
+                type: 'shared',
+                parentId: { $in: [...subFolders.map((f) => f._id), folder._id] },
+              },
+            };
+          } else {
+            query.connections = {
+              $elemMatch: {
+                id: agentProfile._id,
+                type: 'agent',
+                parentId: { $in: [...subFolders.map((f) => f._id), folder._id] },
+              },
+            };
+          }
+        }
+      } else {
+        query.connections = {
+          $elemMatch: {
+            id: contact!._id,
+            type: 'contact',
+            parentId: { $in: [...subFolders.map((f) => f._id), folder._id] },
+            permission: FilePermission.editor,
+          },
+        };
       }
       const editableSubfiles = await filesCol.find(query).toArray();
       if (editableSubfiles.length !== allSubfiles.length) {
@@ -415,20 +503,36 @@ export const downloadFileUrl = async (req: Request, res: Response) => {
 
     if (agentProfile) {
       if (contact) {
-        query['connections.id'] = contact._id;
-        query['connections.type'] = forAgentOnly ? 'forAgentOnly' : 'contact';
+        query.connections = {
+          $elemMatch: {
+            id: contact._id,
+            type: forAgentOnly ? 'forAgentOnly' : 'contact',
+          },
+        };
       } else {
         if (isShared) {
-          query['connections.id'] = undefined;
-          query['connections.type'] = 'shared';
+          query.connections = {
+            $elemMatch: {
+              id: undefined,
+              type: 'shared',
+            },
+          };
         } else {
-          query['connections.id'] = agentProfile._id;
-          query['connections.type'] = 'agent';
+          query.connections = {
+            $elemMatch: {
+              id: agentProfile._id,
+              type: 'agent',
+            },
+          };
         }
       }
     } else {
-      query['connections.id'] = contact?._id;
-      query['connections.type'] = 'contact';
+      query.connections = {
+        $elemMatch: {
+          id: contact?._id,
+          type: 'contact',
+        },
+      };
     }
 
     const file = await filesCol.findOne(query);
@@ -461,20 +565,36 @@ export const loadfile = async (req: Request, res: Response) => {
     };
     if (agentProfile) {
       if (contact) {
-        query['connections.id'] = contact._id;
-        query['connections.type'] = forAgentOnly === 'true' ? 'forAgentOnly' : 'contact';
+        query.connections = {
+          $elemMatch: {
+            id: contact._id,
+            type: forAgentOnly === 'true' ? 'forAgentOnly' : 'contact',
+          },
+        };
       } else {
         if (isShared === 'true') {
-          query['connections.id'] = undefined;
-          query['connections.type'] = 'shared';
+          query.connections = {
+            $elemMatch: {
+              id: undefined,
+              type: 'shared',
+            },
+          };
         } else {
-          query['connections.id'] = agentProfile._id;
-          query['connections.type'] = 'agent';
+          query.connections = {
+            $elemMatch: {
+              id: agentProfile._id,
+              type: 'agent',
+            },
+          };
         }
       }
     } else {
-      query['connections.id'] = contact?._id;
-      query['connections.type'] = 'contact';
+      query.connections = {
+        $elemMatch: {
+          id: contact?._id,
+          type: 'contact',
+        },
+      };
     }
 
     const file = await filesCol.findOne(query);
@@ -511,20 +631,36 @@ export const renameFile = async (req: Request, res: Response) => {
     };
     if (agentProfile) {
       if (contact) {
-        query['connections.id'] = contact._id;
-        query['connections.type'] = forAgentOnly ? 'forAgentOnly' : 'contact';
+        query.connections = {
+          $elemMatch: {
+            id: contact._id,
+            type: forAgentOnly ? 'forAgentOnly' : 'contact',
+          },
+        };
       } else {
         if (isShared) {
-          query['connections.id'] = undefined;
-          query['connections.type'] = 'shared';
+          query.connections = {
+            $elemMatch: {
+              id: undefined,
+              type: 'shared',
+            },
+          };
         } else {
-          query['connections.id'] = agentProfile._id;
-          query['connections.type'] = 'agent';
+          query.connections = {
+            $elemMatch: {
+              id: agentProfile._id,
+              type: 'agent',
+            },
+          };
         }
       }
     } else {
-      query['connections.id'] = contact?._id;
-      query['connections.type'] = 'contact';
+      query.connections = {
+        $elemMatch: {
+          id: contact?._id,
+          type: 'contact',
+        },
+      };
     }
 
     const file = await filesCol.findOne(query);
@@ -559,8 +695,12 @@ export const shareFile = async (req: Request, res: Response) => {
     const query: any = {
       _id: new ObjectId(fileId),
       orgId: agentProfile.orgId,
-      'connections.id': agentProfile._id,
-      'connections.type': 'agent',
+      connections: {
+        $elemMatch: {
+          id: agentProfile._id,
+          type: 'agent',
+        },
+      },
     };
 
     const file = await filesCol.findOne(query);
