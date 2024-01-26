@@ -59,6 +59,7 @@ import {
   renameFile,
   renameFolder,
   shareFile,
+  shareForAgentOnlyFile,
   storeFile,
 } from '@/controllers/media';
 import { folderAuth } from '@/middlewares/folderAuth';
@@ -143,6 +144,7 @@ orgsRouter
   .post('/:id/files/:fileId/download-url', agentOrContact, downloadFileUrl)
   .get('/:id/files/:fileId/load', agentOrContact, loadfile)
   .put('/:id/files/:fileId/rename', validate(mediaScheme.create), agentOrContact, renameFile)
-  .post('/:id/files/:fileId/share', validate(mediaScheme.shareFile), orgRoleAuth(AgentRole.agent), shareFile);
+  .post('/:id/files/:fileId/share', validate(mediaScheme.shareFile), orgRoleAuth(AgentRole.agent), shareFile)
+  .post('/:id/files/:fileId/share/:contactId', orgRoleAuth(AgentRole.agent), shareForAgentOnlyFile);
 
 export default orgsRouter;

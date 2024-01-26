@@ -683,6 +683,83 @@ export const renameFile = async (req: Request, res: Response) => {
   }
 };
 
+const sendMessage = async (agentProfile: IAgentProfile, contact: IContact, file: IFile) => {
+  // get dm & update dm
+  const dm = await roomsCol.findOne({
+    orgId: agentProfile.orgId,
+    usernames: {
+      $all: [agentProfile.username, contact.username || contact._id.toString()],
+    },
+    type: RoomType.dm,
+    deleted: false,
+  });
+  if (dm) {
+    const connection = file.connections.find((con) => con.id?.toString() === contact._id.toString());
+    const folderId = connection?.parentId;
+    // create message
+    const msgData: WithoutId<IMessage> = {
+      orgId: agentProfile.orgId,
+      roomId: dm._id,
+      msg: `New file "${file.name}" is shared`,
+      senderName: agentProfile.username,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      attatchMents: [],
+      edited: false,
+      editable: false,
+      agentLink: `contacts/${contact._id}/folders/forcontact${folderId ? `/${folderId}` : ''}`,
+      contactLink: `folders${folderId ? `/${folderId}` : ''}`,
+      mentions: [],
+      channels: [],
+    };
+    const newMsg = await messagesCol.insertOne(msgData);
+
+    // get all users
+    const users = await usersCol.find({ username: { $in: dm.usernames } }).toArray();
+
+    // update room
+    const roomData: IRoom = {
+      ...dm,
+      userStatus: {
+        ...dm.userStatus,
+        ...dm.usernames.reduce(
+          (obj, un) => ({
+            ...obj,
+            [un]: {
+              online: !!users.find((u) => u.username === un)?.socketId,
+              notis: un !== agentProfile.username ? dm.userStatus[un].notis + 1 : dm.userStatus[un].notis,
+              unRead: true,
+              firstNotiMessage:
+                un !== agentProfile.username
+                  ? dm.userStatus[un].firstNotiMessage || newMsg.insertedId
+                  : dm.userStatus[un].firstNotiMessage,
+              firstUnReadmessage: dm.userStatus[un].firstUnReadmessage || newMsg.insertedId,
+              socketId: users.find((u) => u.username === un)?.socketId,
+            },
+          }),
+          {}
+        ),
+      },
+    };
+
+    if (dm.type === RoomType.dm && !dm.dmInitiated) {
+      roomData.dmInitiated = true;
+    }
+
+    await roomsCol.updateOne({ _id: dm._id }, { $set: roomData });
+
+    users.forEach((u) => {
+      if (io && u.socketId) {
+        // update room
+        io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
+
+        // send message
+        io.to(u.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
+      }
+    });
+  }
+};
+
 export const shareFile = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile as IAgentProfile;
@@ -736,82 +813,56 @@ export const shareFile = async (req: Request, res: Response) => {
 
     if (notify) {
       for (const contact of contacts) {
-        // get dm & update dm
-        const dm = await roomsCol.findOne({
-          orgId: agentProfile.orgId,
-          usernames: {
-            $all: [agentProfile.username, contact.username || contact._id.toString()],
-          },
-          type: RoomType.dm,
-          deleted: false,
-        });
-        if (dm) {
-          const connection = file.connections.find((con) => con.id?.toString() === contact._id.toString());
-          const folderId = connection?.parentId;
-          // create message
-          const msgData: WithoutId<IMessage> = {
-            orgId: agentProfile.orgId,
-            roomId: dm._id,
-            msg: `New file "${file.name}" is shared`,
-            senderName: agentProfile.username,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            attatchMents: [],
-            edited: false,
-            editable: false,
-            agentLink: `contacts/${contact._id}/folders/forcontact${folderId ? `/${folderId}` : ''}`,
-            contactLink: `folders${folderId ? `/${folderId}` : ''}`,
-            mentions: [],
-            channels: [],
-          };
-          const newMsg = await messagesCol.insertOne(msgData);
-
-          // get all users
-          const users = await usersCol.find({ username: { $in: dm.usernames } }).toArray();
-
-          // update room
-          const roomData: IRoom = {
-            ...dm,
-            userStatus: {
-              ...dm.userStatus,
-              ...dm.usernames.reduce(
-                (obj, un) => ({
-                  ...obj,
-                  [un]: {
-                    online: !!users.find((u) => u.username === un)?.socketId,
-                    notis: un !== agentProfile.username ? dm.userStatus[un].notis + 1 : dm.userStatus[un].notis,
-                    unRead: true,
-                    firstNotiMessage:
-                      un !== agentProfile.username
-                        ? dm.userStatus[un].firstNotiMessage || newMsg.insertedId
-                        : dm.userStatus[un].firstNotiMessage,
-                    firstUnReadmessage: dm.userStatus[un].firstUnReadmessage || newMsg.insertedId,
-                    socketId: users.find((u) => u.username === un)?.socketId,
-                  },
-                }),
-                {}
-              ),
-            },
-          };
-
-          if (dm.type === RoomType.dm && !dm.dmInitiated) {
-            roomData.dmInitiated = true;
-          }
-
-          await roomsCol.updateOne({ _id: dm._id }, { $set: roomData });
-
-          users.forEach((u) => {
-            if (io && u.socketId) {
-              // update room
-              io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
-
-              // send message
-              io.to(u.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
-            }
-          });
-        }
+        await sendMessage(agentProfile, contact, file);
       }
     }
+
+    return res.json({ msg: 'shared' });
+  } catch (error) {
+    console.log('deleteFolder error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const shareForAgentOnlyFile = async (req: Request, res: Response) => {
+  try {
+    const agentProfile = req.agentProfile as IAgentProfile;
+
+    const { fileId, contactId } = req.params;
+
+    const contact = await contactsCol.findOne({ _id: new ObjectId(contactId), agentProfileId: agentProfile._id });
+
+    if (!contact) {
+      return res.status(400).json({ msg: 'bad request' });
+    }
+
+    const query: any = {
+      _id: new ObjectId(fileId),
+      orgId: agentProfile.orgId,
+      creator: agentProfile.username,
+      connections: {
+        $elemMatch: {
+          id: contact._id,
+          type: 'forAgentOnly',
+        },
+      },
+    };
+
+    const file = await filesCol.findOne(query);
+    if (!file) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
+    const connections = file.connections.map((con) =>
+      contact._id.toString() === con.id?.toString()
+        ? { ...con, permission: FilePermission.editor, type: 'contact', parentId: '' }
+        : con
+    ) as IFileConnect[];
+
+    // share files
+    await filesCol.updateOne({ _id: file._id }, { $set: { connections } });
+
+    await sendMessage(agentProfile, contact, file);
 
     return res.json({ msg: 'shared' });
   } catch (error) {
