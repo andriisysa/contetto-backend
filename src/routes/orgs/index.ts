@@ -139,7 +139,7 @@ orgsRouter
   .post('/:id/folders/:folderId/move', validate(mediaScheme.move), agentOrContact, folderAuth, moveFiles)
   .delete('/:id/folders', validate(mediaScheme.move), agentOrContact, deleteFiles)
 
-  .post('/:id/files/upload-url', validate(mediaScheme.create), agentOrContact, getUploadFileUrl)
+  .post('/:id/files/upload-url', validate(mediaScheme.uploadFile), agentOrContact, getUploadFileUrl)
   .post('/:id/files', validate(mediaScheme.storeFile), agentOrContact, folderAuth, storeFile)
   .post('/:id/files/:fileId/download-url', agentOrContact, downloadFileUrl)
   .get('/:id/files/:fileId/load', agentOrContact, loadfile)

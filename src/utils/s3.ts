@@ -1,6 +1,5 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import mime from 'mime';
 import path from 'path';
 import crypto from 'crypto';
 import { awsCredentials } from './aws';
@@ -36,7 +35,7 @@ export const uploadBase64ToS3 = async (
   return filePath;
 };
 
-export const getUploadSignedUrl = async (orgId: string, filename: string) => {
+export const getUploadSignedUrl = async (orgId: string, filename: string, type: string) => {
   const hash = crypto.createHash('md5').update(new Date().toISOString()).digest('hex');
   const parsed = path.parse(filename);
   const Key = `files/${orgId}/${parsed.name.toLowerCase()}_${hash}${parsed.ext}`;
@@ -45,7 +44,7 @@ export const getUploadSignedUrl = async (orgId: string, filename: string) => {
     Bucket: process.env.AWS_BUCKET_NAME,
     Key,
     ACL: 'private',
-    ContentType: mime.getType(filename) as string,
+    ContentType: type,
   });
 
   const singedUrl = await getSignedUrl(s3, command, { expiresIn: SIGNED_EXP });

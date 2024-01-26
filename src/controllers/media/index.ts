@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { ObjectId, WithoutId } from 'mongodb';
-import mime from 'mime';
 import path from 'path';
 
 import { db } from '@/database';
@@ -406,9 +405,9 @@ export const getUploadFileUrl = async (req: Request, res: Response) => {
     const agentProfile = req.agentProfile;
     const contact = req.contact;
 
-    const { name } = req.body;
+    const { name, type } = req.body;
 
-    const data = await getUploadSignedUrl(String(agentProfile?.orgId || contact?.orgId), name);
+    const data = await getUploadSignedUrl(String(agentProfile?.orgId || contact?.orgId), name, type);
 
     return res.json(data);
   } catch (error) {
@@ -424,7 +423,7 @@ export const storeFile = async (req: Request, res: Response) => {
     const contact = req.contact;
     const folder = req.folder;
 
-    const { name, isShared = false, forAgentOnly = false, s3Key, size = 0 } = req.body;
+    const { name, type, isShared = false, forAgentOnly = false, s3Key, size = 0 } = req.body;
     const parsed = path.parse(name);
 
     const data: WithoutId<IFile> = {
@@ -434,7 +433,7 @@ export const storeFile = async (req: Request, res: Response) => {
       s3Key,
       size,
       ext: parsed.ext,
-      mimetype: mime.getType(name) as string,
+      mimetype: type,
       timestamp: getNow(),
       connections: [],
     };

@@ -55,8 +55,13 @@ export const mediaScheme = {
     body('folderIds').isArray().withMessage('folderIds are required!'),
     body('fileIds').isArray().withMessage('fileIds are required!'),
   ],
+  uploadFile: [
+    body('name').isString().withMessage('Name is required!'),
+    body('type').isString().withMessage('Name is required!'),
+  ],
   storeFile: [
     body('name').isString().withMessage('Name is required!'),
+    body('type').isString().withMessage('Name is required!'),
     body('s3Key').isString().withMessage('Key is required!'),
     body('size').isNumeric().withMessage('File size is required!'),
   ],

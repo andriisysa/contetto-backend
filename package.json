@@ -25,7 +25,6 @@
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "luxon": "^3.4.3",
-    "mime": "^4.0.1",
     "mongodb": "^6.2.0",
     "postmark": "^4.0.2",
     "socket.io": "^4.7.2"
