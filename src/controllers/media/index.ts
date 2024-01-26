@@ -10,10 +10,16 @@ import { deleteS3Objects, getDownloadSignedUrl, getS3Object, getUploadSignedUrl 
 import { getNow } from '@/utils';
 import { IContact } from '@/types/contact.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
+import { IRoom, RoomType } from '@/types/room.types';
+import { IMessage, ServerMessageType } from '@/types/message.types';
+import { io } from '@/socketServer';
 
 const foldersCol = db.collection<WithoutId<IFolder>>('folders');
 const filesCol = db.collection<WithoutId<IFile>>('files');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
+const usersCol = db.collection<WithoutId<IUser>>('users');
+const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
+const messagesCol = db.collection<WithoutId<IMessage>>('messages');
 
 // folder operation
 export const createFolder = async (req: Request, res: Response) => {
@@ -682,7 +688,7 @@ export const shareFile = async (req: Request, res: Response) => {
     const agentProfile = req.agentProfile as IAgentProfile;
 
     const { fileId } = req.params;
-    const { contactIds = [], permission } = req.body;
+    const { contactIds = [], permission, notify = false } = req.body;
 
     const contacts = await contactsCol
       .find({ _id: { $in: contactIds.map((cid: string) => new ObjectId(cid)) }, agentProfileId: agentProfile._id })
@@ -710,7 +716,9 @@ export const shareFile = async (req: Request, res: Response) => {
 
     const connections = [
       ...file.connections.map((con) =>
-        contacts.find((contact) => contact._id.toString() === con.id?.toString()) ? { ...con, permission } : con
+        contacts.find((contact) => contact._id.toString() === con.id?.toString())
+          ? { ...con, permission, type: 'contact' }
+          : con
       ),
       ...contacts
         .filter((contact) => !file.connections.find((con) => contact._id.toString() === con.id?.toString()))
@@ -725,6 +733,85 @@ export const shareFile = async (req: Request, res: Response) => {
 
     // share files
     await filesCol.updateOne({ _id: file._id }, { $set: { connections } });
+
+    if (notify) {
+      for (const contact of contacts) {
+        // get dm & update dm
+        const dm = await roomsCol.findOne({
+          orgId: agentProfile.orgId,
+          usernames: {
+            $all: [agentProfile.username, contact.username || contact._id.toString()],
+          },
+          type: RoomType.dm,
+          deleted: false,
+        });
+        if (dm) {
+          const connection = file.connections.find((con) => con.id?.toString() === contact._id.toString());
+          const folderId = connection?.parentId;
+          // create message
+          const msgData: WithoutId<IMessage> = {
+            orgId: agentProfile.orgId,
+            roomId: dm._id,
+            msg: `New file "${file.name}" is shared`,
+            senderName: agentProfile.username,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            attatchMents: [],
+            edited: false,
+            editable: false,
+            agentLink: `contacts/${contact._id}/folders/forcontact${folderId ? `/${folderId}` : ''}`,
+            contactLink: `folders${folderId ? `/${folderId}` : ''}`,
+            mentions: [],
+            channels: [],
+          };
+          const newMsg = await messagesCol.insertOne(msgData);
+
+          // get all users
+          const users = await usersCol.find({ username: { $in: dm.usernames } }).toArray();
+
+          // update room
+          const roomData: IRoom = {
+            ...dm,
+            userStatus: {
+              ...dm.userStatus,
+              ...dm.usernames.reduce(
+                (obj, un) => ({
+                  ...obj,
+                  [un]: {
+                    online: !!users.find((u) => u.username === un)?.socketId,
+                    notis: un !== agentProfile.username ? dm.userStatus[un].notis + 1 : dm.userStatus[un].notis,
+                    unRead: true,
+                    firstNotiMessage:
+                      un !== agentProfile.username
+                        ? dm.userStatus[un].firstNotiMessage || newMsg.insertedId
+                        : dm.userStatus[un].firstNotiMessage,
+                    firstUnReadmessage: dm.userStatus[un].firstUnReadmessage || newMsg.insertedId,
+                    socketId: users.find((u) => u.username === un)?.socketId,
+                  },
+                }),
+                {}
+              ),
+            },
+          };
+
+          if (dm.type === RoomType.dm && !dm.dmInitiated) {
+            roomData.dmInitiated = true;
+          }
+
+          await roomsCol.updateOne({ _id: dm._id }, { $set: roomData });
+
+          users.forEach((u) => {
+            if (io && u.socketId) {
+              // update room
+              io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
+
+              // send message
+              io.to(u.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
+            }
+          });
+        }
+      }
+    }
 
     return res.json({ msg: 'shared' });
   } catch (error) {

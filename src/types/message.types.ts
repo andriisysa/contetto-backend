@@ -31,6 +31,8 @@ export interface IMessage {
   channels: string[]; // channel names
   editable: boolean;
   sharelink?: string;
+  agentLink?: string;
+  contactLink?: string;
 }
 
 export interface IMessagePayload {

@@ -39,6 +39,7 @@ export interface IUserQueryJson {
 
   propertyType?: ('Condo' | 'House' | 'Other')[];
   walkingDistance?: NearBy[];
+  address?: string
 }
 
 export interface ISearchResult {

@@ -42,7 +42,6 @@ export const agentOrContact = async (req: Request, res: Response, next: NextFunc
     if (contactId) {
       contact = (await contactsCol.findOne({
         _id: new ObjectId(String(contactId)),
-        username: user.username,
         orgId: org._id,
       })) as IContact;
       if (contact && agentProfile) {

@@ -167,6 +167,7 @@ export const searchListings = async (req: Request, res: Response) => {
                   'propertyType': string array. avaialble values are 'Condo', 'House' and 'Other'. no other values
                   'walkingDistance': string array. avaialble values are 'School', 'Park' and 'Medical Facility'. no other values
                     example: "nearby school", then ['School']
+                  'address': string field. representing street number and street name. please don't include city or state name
 
                   Make sure the response does not contain the variable definition or trailing semicolon.
                   I will be using json_decode to turn your response into the Json Object.
@@ -233,6 +234,9 @@ export const searchListings = async (req: Request, res: Response) => {
         }
         if (obj.walkingDistance) {
           userQueryJson.walkingDistance = obj.walkingDistance;
+        }
+        if (obj.address) {
+          userQueryJson.address = obj.address;
         }
       }
     }
@@ -325,6 +329,12 @@ export const searchListings = async (req: Request, res: Response) => {
     }
     if (userQueryJson.listedSince) {
       matchQuery.timestamp = { $gte: userQueryJson.listedSince };
+    }
+    if (userQueryJson.address) {
+      matchQuery.UnparsedAddress = {
+        $regex: userQueryJson.address.trim().replace(/[-[\]{}()*+?.,\\/^$|#\s]/g, '\\$&'),
+        $options: 'i',
+      };
     }
     if (userQueryJson.price) {
       if (userQueryJson.price[0] > MIN_PRICE) {
