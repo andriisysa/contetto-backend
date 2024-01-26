@@ -23,7 +23,7 @@ export enum FilePermission {
 
 export interface IFileConnect {
   id?: ObjectId; // agentId or contactId or null for org shared
-  username: string; // agent username or contact name
+  username?: string; // agent username or contact name
   type: 'agent' | 'contact' | 'shared' | 'forAgentOnly';
   permission: FilePermission;
   parentId: ObjectId | ''; // parentId = '' means it's root folder

@@ -238,7 +238,7 @@ export const moveFiles = async (req: Request, res: Response) => {
       { ...fileQuery },
       {
         $set: {
-          'connections.&.parentId': targetFolder._id,
+          'connections.$.parentId': targetFolder._id,
         },
       }
     );
@@ -713,7 +713,7 @@ export const shareFile = async (req: Request, res: Response) => {
         contacts.find((contact) => contact._id.toString() === con.id?.toString()) ? { ...con, permission } : con
       ),
       ...contacts
-        .filter((contact) => file.connections.find((con) => contact._id.toString() !== con.id?.toString()))
+        .filter((contact) => !file.connections.find((con) => contact._id.toString() === con.id?.toString()))
         .map((contact) => ({
           id: contact._id,
           username: contact.name,
