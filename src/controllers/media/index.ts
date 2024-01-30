@@ -446,101 +446,103 @@ export const moveFiles = async (req: Request, res: Response) => {
         },
       };
       const subFolders = await foldersCol.find(subFolderQuery).toArray();
-      const bulkOps = subFolders.map((sub) => {
-        const connections = sub.connections.map((con) => {
-          if (agentProfile) {
-            if (contact) {
-              if (forAgentOnly) {
-                if (con.id?.equals(contact._id) && con.type === 'forAgentOnly') {
-                  return {
-                    ...con,
-                    parentId: targetFolder._id,
-                    parentPaths: [
-                      ...parentPaths,
-                      targetFolder._id,
-                      ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
-                    ],
-                  };
+      if (subFolders.length > 0) {
+        const bulkOps = subFolders.map((sub) => {
+          const connections = sub.connections.map((con) => {
+            if (agentProfile) {
+              if (contact) {
+                if (forAgentOnly) {
+                  if (con.id?.equals(contact._id) && con.type === 'forAgentOnly') {
+                    return {
+                      ...con,
+                      parentId: targetFolder._id,
+                      parentPaths: [
+                        ...parentPaths,
+                        targetFolder._id,
+                        ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
+                      ],
+                    };
+                  } else {
+                    return con;
+                  }
                 } else {
-                  return con;
+                  if (con.id?.equals(contact._id) && con.type === 'contact') {
+                    return {
+                      ...con,
+                      parentId: targetFolder._id,
+                      parentPaths: [
+                        ...parentPaths,
+                        targetFolder._id,
+                        ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
+                      ],
+                    };
+                  } else {
+                    return con;
+                  }
                 }
               } else {
-                if (con.id?.equals(contact._id) && con.type === 'contact') {
-                  return {
-                    ...con,
-                    parentId: targetFolder._id,
-                    parentPaths: [
-                      ...parentPaths,
-                      targetFolder._id,
-                      ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
-                    ],
-                  };
+                if (isShared) {
+                  if (con.type === 'shared') {
+                    return {
+                      ...con,
+                      parentId: targetFolder._id,
+                      parentPaths: [
+                        ...parentPaths,
+                        targetFolder._id,
+                        ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
+                      ],
+                    };
+                  } else {
+                    return con;
+                  }
                 } else {
-                  return con;
+                  if (con.id?.equals(agentProfile._id) && con.type === 'agent') {
+                    return {
+                      ...con,
+                      parentId: targetFolder._id,
+                      parentPaths: [
+                        ...parentPaths,
+                        targetFolder._id,
+                        ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
+                      ],
+                    };
+                  } else {
+                    return con;
+                  }
                 }
               }
             } else {
-              if (isShared) {
-                if (con.type === 'shared') {
-                  return {
-                    ...con,
-                    parentId: targetFolder._id,
-                    parentPaths: [
-                      ...parentPaths,
-                      targetFolder._id,
-                      ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
-                    ],
-                  };
-                } else {
-                  return con;
-                }
+              if (con.id?.equals(contact!._id) && con.type === 'contact') {
+                return {
+                  ...con,
+                  parentId: targetFolder._id,
+                  parentPaths: [
+                    ...parentPaths,
+                    targetFolder._id,
+                    ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
+                  ],
+                };
               } else {
-                if (con.id?.equals(agentProfile._id) && con.type === 'agent') {
-                  return {
-                    ...con,
-                    parentId: targetFolder._id,
-                    parentPaths: [
-                      ...parentPaths,
-                      targetFolder._id,
-                      ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
-                    ],
-                  };
-                } else {
-                  return con;
-                }
+                return con;
               }
             }
-          } else {
-            if (con.id?.equals(contact!._id) && con.type === 'contact') {
-              return {
-                ...con,
-                parentId: targetFolder._id,
-                parentPaths: [
-                  ...parentPaths,
-                  targetFolder._id,
-                  ...con.parentPaths.slice(con.parentPaths.findIndex((id) => id.equals(folder._id))),
-                ],
-              };
-            } else {
-              return con;
-            }
-          }
-        });
+          });
 
-        return {
-          updateOne: {
-            filter: { _id: sub._id },
-            update: {
-              $set: {
-                connections,
+          return {
+            updateOne: {
+              filter: { _id: sub._id },
+              update: {
+                $set: {
+                  connections,
+                },
               },
             },
-          },
-        };
-      });
+          };
+        });
 
-      // Execute the bulk write operation
-      await foldersCol.bulkWrite(bulkOps);
+        // Execute the bulk write operation
+        await foldersCol.bulkWrite(bulkOps);
+      }
     }
 
     // move files
@@ -803,75 +805,79 @@ export const shareFolder = async (req: Request, res: Response) => {
       // share folder
       await foldersCol.updateOne({ _id: folder._id }, { $set: { connections } });
 
-      const bulkFolderOps = subFolders.map((sub) => {
-        const currentConnection = sub.connections[0];
-        const existing = sub.connections.find((con) => !con.id && con.type === 'shared');
-        const connections = [
-          ...sub.connections,
-          ...(existing
-            ? []
-            : [
-                {
-                  ...currentConnection!,
-                  id: undefined,
-                  username: undefined,
-                  type: 'shared',
-                  permission: FilePermission.editor,
-                  parentPaths: currentConnection!.parentPaths.slice(
-                    currentConnection?.parentPaths.findIndex((path) => path.equals(folder._id))
-                  ),
-                },
-              ]),
-        ] as IFolderConnect[];
+      if (subFolders.length > 0) {
+        const bulkFolderOps = subFolders.map((sub) => {
+          const currentConnection = sub.connections[0];
+          const existing = sub.connections.find((con) => !con.id && con.type === 'shared');
+          const connections = [
+            ...sub.connections,
+            ...(existing
+              ? []
+              : [
+                  {
+                    ...currentConnection!,
+                    id: undefined,
+                    username: undefined,
+                    type: 'shared',
+                    permission: FilePermission.editor,
+                    parentPaths: currentConnection!.parentPaths.slice(
+                      currentConnection?.parentPaths.findIndex((path) => path.equals(folder._id))
+                    ),
+                  },
+                ]),
+          ] as IFolderConnect[];
 
-        return {
-          updateOne: {
-            filter: { _id: sub._id },
-            update: {
-              $set: {
-                connections,
+          return {
+            updateOne: {
+              filter: { _id: sub._id },
+              update: {
+                $set: {
+                  connections,
+                },
               },
             },
-          },
-        };
-      });
+          };
+        });
 
-      // Execute the bulk write operation
-      await foldersCol.bulkWrite(bulkFolderOps);
+        // Execute the bulk write operation
+        await foldersCol.bulkWrite(bulkFolderOps);
+      }
 
-      // update subfiles
-      const fileBulkOps = subFiles.map((sub) => {
-        const currentConnection = sub.connections[0];
-        const existing = sub.connections.find((con) => !con.id && con.type === 'shared');
-        const connections = [
-          ...sub.connections,
-          ...(existing
-            ? []
-            : [
-                {
-                  ...currentConnection!,
-                  id: undefined,
-                  username: undefined,
-                  type: 'shared',
-                  permission: FilePermission.editor,
+      if (subFiles.length > 0) {
+        // update subfiles
+        const fileBulkOps = subFiles.map((sub) => {
+          const currentConnection = sub.connections[0];
+          const existing = sub.connections.find((con) => !con.id && con.type === 'shared');
+          const connections = [
+            ...sub.connections,
+            ...(existing
+              ? []
+              : [
+                  {
+                    ...currentConnection!,
+                    id: undefined,
+                    username: undefined,
+                    type: 'shared',
+                    permission: FilePermission.editor,
+                  },
+                ]),
+          ] as IFileConnect[];
+
+          return {
+            updateOne: {
+              filter: { _id: sub._id },
+              update: {
+                $set: {
+                  connections,
                 },
-              ]),
-        ] as IFileConnect[];
-
-        return {
-          updateOne: {
-            filter: { _id: sub._id },
-            update: {
-              $set: {
-                connections,
               },
             },
-          },
-        };
-      });
+          };
+        });
 
-      // Execute the bulk write operation
-      await filesCol.bulkWrite(fileBulkOps);
+        // Execute the bulk write operation
+        await filesCol.bulkWrite(fileBulkOps);
+      }
 
       return res.json({ msg: 'shared' });
     }
@@ -905,76 +911,80 @@ export const shareFolder = async (req: Request, res: Response) => {
     // share files
     await foldersCol.updateOne({ _id: folder._id }, { $set: { connections } });
 
-    // update subfolders
-    const bulkFolderOps = subFolders.map((sub) => {
-      const connections = [
-        ...sub.connections.map((con) =>
-          contacts.find((contact) => contact._id.toString() === con.id?.toString())
-            ? { ...con, permission, type: 'contact' }
-            : con
-        ),
-        ...contacts
-          .filter((contact) => !sub.connections.find((con) => contact._id.toString() === con.id?.toString()))
-          .map((contact) => ({
-            id: contact._id,
-            username: contact.name,
-            type: 'contact',
-            permission: permission as FilePermission,
-            parentId: sub.connections[0].parentId,
-            parentPaths: sub.connections[0].parentPaths.slice(
-              sub.connections[0].parentPaths.findIndex((path) => path.equals(folder._id))
-            ),
-          })),
-      ] as IFolderConnect[];
+    if (subFolders.length > 0) {
+      // update subfolders
+      const bulkFolderOps = subFolders.map((sub) => {
+        const connections = [
+          ...sub.connections.map((con) =>
+            contacts.find((contact) => contact._id.toString() === con.id?.toString())
+              ? { ...con, permission, type: 'contact' }
+              : con
+          ),
+          ...contacts
+            .filter((contact) => !sub.connections.find((con) => contact._id.toString() === con.id?.toString()))
+            .map((contact) => ({
+              id: contact._id,
+              username: contact.name,
+              type: 'contact',
+              permission: permission as FilePermission,
+              parentId: sub.connections[0].parentId,
+              parentPaths: sub.connections[0].parentPaths.slice(
+                sub.connections[0].parentPaths.findIndex((path) => path.equals(folder._id))
+              ),
+            })),
+        ] as IFolderConnect[];
 
-      return {
-        updateOne: {
-          filter: { _id: sub._id },
-          update: {
-            $set: {
-              connections,
+        return {
+          updateOne: {
+            filter: { _id: sub._id },
+            update: {
+              $set: {
+                connections,
+              },
             },
           },
-        },
-      };
-    });
+        };
+      });
 
-    // Execute the bulk write operation
-    await foldersCol.bulkWrite(bulkFolderOps);
+      // Execute the bulk write operation
+      await foldersCol.bulkWrite(bulkFolderOps);
+    }
 
-    // update subfiles
-    const fileBulkOps = subFiles.map((sub) => {
-      const connections = [
-        ...sub.connections.map((con) =>
-          contacts.find((contact) => contact._id.toString() === con.id?.toString())
-            ? { ...con, permission, type: 'contact' }
-            : con
-        ),
-        ...contacts
-          .filter((contact) => !sub.connections.find((con) => contact._id.toString() === con.id?.toString()))
-          .map((contact) => ({
-            id: contact._id,
-            username: contact.name,
-            type: 'contact',
-            permission: permission as FilePermission,
-            parentId: sub.connections[0].parentId,
-          })),
-      ] as IFileConnect[];
+    if (subFiles.length > 0) {
+      // update subfiles
+      const fileBulkOps = subFiles.map((sub) => {
+        const connections = [
+          ...sub.connections.map((con) =>
+            contacts.find((contact) => contact._id.toString() === con.id?.toString())
+              ? { ...con, permission, type: 'contact' }
+              : con
+          ),
+          ...contacts
+            .filter((contact) => !sub.connections.find((con) => contact._id.toString() === con.id?.toString()))
+            .map((contact) => ({
+              id: contact._id,
+              username: contact.name,
+              type: 'contact',
+              permission: permission as FilePermission,
+              parentId: sub.connections[0].parentId,
+            })),
+        ] as IFileConnect[];
 
-      return {
-        updateOne: {
-          filter: { _id: sub._id },
-          update: {
-            $set: {
-              connections,
+        return {
+          updateOne: {
+            filter: { _id: sub._id },
+            update: {
+              $set: {
+                connections,
+              },
             },
           },
-        },
-      };
-    });
+        };
+      });
 
-    // Execute the bulk write operation
-    await filesCol.bulkWrite(fileBulkOps);
+      // Execute the bulk write operation
+      await filesCol.bulkWrite(fileBulkOps);
+    }
 
     if (notify) {
       for (const contact of contacts) {
