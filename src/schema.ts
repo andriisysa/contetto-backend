@@ -66,7 +66,7 @@ export const mediaScheme = {
     body('size').isNumeric().withMessage('File size is required!'),
   ],
   shareFile: [
-    body('contactIds').isArray({ min: 1 }).withMessage('Contact is required!'),
+    body('contactIds').isArray().withMessage('Contact is required!'),
     body('permission').isString().withMessage('Permission is required!'),
   ],
 };

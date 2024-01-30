@@ -52,6 +52,7 @@ import {
   createFolder,
   deleteFiles,
   downloadFileUrl,
+  getFileShareLink,
   getFolder,
   getUploadFileUrl,
   loadfile,
@@ -59,6 +60,7 @@ import {
   renameFile,
   renameFolder,
   shareFile,
+  shareFolder,
   shareForAgentOnlyFile,
   storeFile,
 } from '@/controllers/media';
@@ -135,6 +137,7 @@ orgsRouter
   .get('/:id/folders', agentOrContact, getFolder)
   .get('/:id/folders/:folderId', agentOrContact, folderAuth, getFolder)
   .put('/:id/folders/:folderId', validate(mediaScheme.create), agentOrContact, folderAuth, renameFolder)
+  .post('/:id/folders/:folderId/share', agentOrContact, shareFolder)
   // here folderId is target folder id
   .post('/:id/folders/:folderId/move', validate(mediaScheme.move), agentOrContact, folderAuth, moveFiles)
   .delete('/:id/folders', validate(mediaScheme.move), agentOrContact, deleteFiles)
@@ -145,6 +148,7 @@ orgsRouter
   .get('/:id/files/:fileId/load', agentOrContact, loadfile)
   .put('/:id/files/:fileId/rename', validate(mediaScheme.create), agentOrContact, renameFile)
   .post('/:id/files/:fileId/share', validate(mediaScheme.shareFile), orgRoleAuth(AgentRole.agent), shareFile)
-  .post('/:id/files/:fileId/share/:contactId', orgRoleAuth(AgentRole.agent), shareForAgentOnlyFile);
+  .post('/:id/files/:fileId/share/:contactId', orgRoleAuth(AgentRole.agent), shareForAgentOnlyFile)
+  .get('/:id/files/:fileId/share-link', orgRoleAuth(AgentRole.agent), getFileShareLink);
 
 export default orgsRouter;

@@ -7,6 +7,7 @@ import citiesRouter from './cities';
 import { getAllRooms } from '@/controllers/rooms';
 import adminAuth from '@/middlewares/adminAuth';
 import adminRouter from './admin';
+import fileShareRouter from './fileshare';
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router
   .use('/orgs', auth, orgsRouter)
   .use('/agents', auth, agentsRouter)
   .use('/cities', auth, citiesRouter)
+  .use('/fileshare', fileShareRouter)
   .use('/admin', adminAuth, adminRouter);
 
 export default router;

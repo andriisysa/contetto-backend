@@ -9,7 +9,6 @@ const foldersCol = db.collection<WithoutId<IFolder>>('folders');
 
 export const folderAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const user = req.user as IUser;
     const agentProfile = req.agentProfile;
     const contact = req.contact;
 
@@ -19,68 +18,29 @@ export const folderAuth = async (req: Request, res: Response, next: NextFunction
 
     const folderId = pfId || qfId || bfId;
     if (folderId) {
-      const lookup = {
-        from: 'folders',
-        localField: 'parentPaths',
-        foreignField: '_id',
-        pipeline: [
-          {
-            $project: {
-              name: 1,
-            },
+      const folder = await foldersCol.findOne({
+        _id: new ObjectId(folderId),
+        orgId: (agentProfile?.orgId || contact?.orgId)!,
+        connections: {
+          $elemMatch: {
+            $or: [
+              ...(agentProfile
+                ? [
+                    { id: undefined, type: 'shared' },
+                    { id: agentProfile._id, type: 'agent' },
+                  ]
+                : []),
+              ...(contact ? [{ id: contact._id, type: { $in: ['contact', 'forAgentOnly'] } }] : []),
+            ],
           },
-        ],
-        as: 'parentFolders',
-      };
+        },
+      });
 
-      if (agentProfile) {
-        const folders = await foldersCol
-          .aggregate([
-            {
-              $match: {
-                _id: new ObjectId(folderId),
-                orgId: agentProfile.orgId,
-                $or: [
-                  { isShared: true },
-                  { isShared: false, creator: user.username },
-                  ...(contact ? [{ contactId: contact._id }] : []),
-                ],
-              },
-            },
-            {
-              $lookup: lookup,
-            },
-          ])
-          .toArray();
-
-        if (folders.length === 0) {
-          return res.status(404).json({ msg: 'not found folder' });
-        }
-
-        req.folder = folders[0] as IFolder;
-      } else {
-        const folders = await foldersCol
-          .aggregate([
-            {
-              $match: {
-                _id: new ObjectId(folderId),
-                orgId: contact!.orgId,
-                contactId: contact!._id,
-                forAgentOnly: false,
-              },
-            },
-            {
-              $lookup: lookup,
-            },
-          ])
-          .toArray();
-
-        if (folders.length === 0) {
-          return res.status(404).json({ msg: 'not found folder' });
-        }
-
-        req.folder = folders[0] as IFolder;
+      if (!folder) {
+        return res.status(404).json({ msg: 'not found folder' });
       }
+
+      req.folder = folder;
     }
 
     await next();
