@@ -445,6 +445,7 @@ export const moveFiles = async (req: Request, res: Response) => {
           },
         },
       };
+
       const subFolders = await foldersCol.find(subFolderQuery).toArray();
       if (subFolders.length > 0) {
         const bulkOps = subFolders.map((sub) => {
@@ -455,7 +456,6 @@ export const moveFiles = async (req: Request, res: Response) => {
                   if (con.id?.equals(contact._id) && con.type === 'forAgentOnly') {
                     return {
                       ...con,
-                      parentId: targetFolder._id,
                       parentPaths: [
                         ...parentPaths,
                         targetFolder._id,
@@ -469,7 +469,6 @@ export const moveFiles = async (req: Request, res: Response) => {
                   if (con.id?.equals(contact._id) && con.type === 'contact') {
                     return {
                       ...con,
-                      parentId: targetFolder._id,
                       parentPaths: [
                         ...parentPaths,
                         targetFolder._id,
@@ -485,7 +484,6 @@ export const moveFiles = async (req: Request, res: Response) => {
                   if (con.type === 'shared') {
                     return {
                       ...con,
-                      parentId: targetFolder._id,
                       parentPaths: [
                         ...parentPaths,
                         targetFolder._id,
@@ -499,7 +497,6 @@ export const moveFiles = async (req: Request, res: Response) => {
                   if (con.id?.equals(agentProfile._id) && con.type === 'agent') {
                     return {
                       ...con,
-                      parentId: targetFolder._id,
                       parentPaths: [
                         ...parentPaths,
                         targetFolder._id,
@@ -515,7 +512,6 @@ export const moveFiles = async (req: Request, res: Response) => {
               if (con.id?.equals(contact!._id) && con.type === 'contact') {
                 return {
                   ...con,
-                  parentId: targetFolder._id,
                   parentPaths: [
                     ...parentPaths,
                     targetFolder._id,
