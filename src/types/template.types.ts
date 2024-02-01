@@ -13,4 +13,6 @@ export interface ITemplate {
   price: number; // 0 for free, price unit usd
   type: TemplateType;
   data: any;
+  createdAt: number;
+  updatedAt: number;
 }

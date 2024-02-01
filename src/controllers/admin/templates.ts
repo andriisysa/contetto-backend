@@ -5,6 +5,7 @@ import { db } from '@/database';
 
 import { ITemplate, TemplateType } from '@/types/template.types';
 import { IOrg } from '@/types/org.types';
+import { getNow } from '@/utils';
 
 const templatesCol = db.collection<WithoutId<ITemplate>>('templates');
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
@@ -29,6 +30,8 @@ export const createTemplate = async (req: Request, res: Response) => {
       orgIds: orgs.map((org) => org._id),
       price,
       type,
+      createdAt: getNow(),
+      updatedAt: getNow(),
     };
 
     const newTmp = await templatesCol.insertOne(templateData);
@@ -60,12 +63,14 @@ export const updateTemplate = async (req: Request, res: Response) => {
     }
 
     const templateData: WithoutId<ITemplate> = {
+      ...template,
       name,
       data,
       isPublic,
       price,
       type,
       orgIds: orgs.map((org) => org._id),
+      updatedAt: getNow(),
     };
 
     await templatesCol.updateOne({ _id: template._id }, { $set: templateData });
