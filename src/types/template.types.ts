@@ -16,3 +16,14 @@ export interface ITemplate {
   createdAt: number;
   updatedAt: number;
 }
+
+export interface ITemplateImage {
+  _id: ObjectId;
+  name: string;
+  username: string;
+  url: string;
+  s3Key: string;
+  mimeType: string;
+  ext: string;
+  orgId?: ObjectId;
+}

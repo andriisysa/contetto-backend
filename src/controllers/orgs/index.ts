@@ -45,7 +45,8 @@ export const create = async (req: Request, res: Response) => {
         return res.status(400).json({ msg: 'Invalid image type' });
       }
 
-      logoUrl = await uploadBase64ToS3('orgs', String(name).split(' ')[0], logoUrl, logoFileType, imageExtension);
+      const { url } = await uploadBase64ToS3('orgs', String(name).split(' ')[0], logoUrl, logoFileType, imageExtension);
+      logoUrl = url;
     }
 
     const orgData: WithoutId<IOrg> = {
@@ -82,7 +83,8 @@ export const update = async (req: Request, res: Response) => {
         return res.status(400).json({ msg: 'Invalid image type' });
       }
 
-      logoUrl = await uploadBase64ToS3('orgs', String(name).split(' ')[0], logoUrl, logoFileType, imageExtension);
+      const { url } = await uploadBase64ToS3('orgs', String(name).split(' ')[0], logoUrl, logoFileType, imageExtension);
+      logoUrl = url;
     }
 
     await orgsCol.updateOne(

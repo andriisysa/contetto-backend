@@ -36,7 +36,14 @@ export const createContact = async (req: Request, res: Response) => {
         return res.status(400).json({ msg: 'Invalid image type' });
       }
 
-      image = await uploadBase64ToS3('contacts', String(name).split(' ')[0], image, imageFileType, imageExtension);
+      const { url } = await uploadBase64ToS3(
+        'contacts',
+        String(name).split(' ')[0],
+        image,
+        imageFileType,
+        imageExtension
+      );
+      image = url;
     }
 
     const data: WithoutId<IContact> = {
@@ -198,7 +205,14 @@ export const updateContact = async (req: Request, res: Response) => {
         return res.status(400).json({ msg: 'Invalid image type' });
       }
 
-      image = await uploadBase64ToS3('contacts', String(name).split(' ')[0], image, imageFileType, imageExtension);
+      const { url } = await uploadBase64ToS3(
+        'contacts',
+        String(name).split(' ')[0],
+        image,
+        imageFileType,
+        imageExtension
+      );
+      image = url;
     }
 
     const contact = await contactsCol.findOne({

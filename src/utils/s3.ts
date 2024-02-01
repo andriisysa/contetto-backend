@@ -32,7 +32,10 @@ export const uploadBase64ToS3 = async (
 
   const filePath = `https://${process.env.AWS_BUCKET_NAME}.s3.${awsCredentials.region}.amazonaws.com/${Key}`;
 
-  return filePath;
+  return {
+    url: filePath,
+    s3Key: Key,
+  };
 };
 
 export const getUploadSignedUrl = async (orgId: string, filename: string, type: string) => {

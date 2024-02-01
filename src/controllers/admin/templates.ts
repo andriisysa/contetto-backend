@@ -3,12 +3,16 @@ import { ObjectId, WithoutId } from 'mongodb';
 
 import { db } from '@/database';
 
-import { ITemplate, TemplateType } from '@/types/template.types';
+import { ITemplate, ITemplateImage, TemplateType } from '@/types/template.types';
 import { IOrg } from '@/types/org.types';
 import { getNow } from '@/utils';
+import { getImageExtension } from '@/utils/extension';
+import { deleteS3Objects, uploadBase64ToS3 } from '@/utils/s3';
+import { IUser } from '@/types/user.types';
 
 const templatesCol = db.collection<WithoutId<ITemplate>>('templates');
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
+const templateImagesCol = db.collection<WithoutId<ITemplateImage>>('templateImages');
 
 export const createTemplate = async (req: Request, res: Response) => {
   try {
@@ -75,7 +79,7 @@ export const updateTemplate = async (req: Request, res: Response) => {
 
     await templatesCol.updateOne({ _id: template._id }, { $set: templateData });
 
-    return res.json({ ...template, ...templateData });
+    return res.json(templateData);
   } catch (error) {
     console.log('admin updateTemplate ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -123,6 +127,78 @@ export const deleteTemplate = async (req: Request, res: Response) => {
     return res.json({ msg: 'success' });
   } catch (error) {
     console.log('admin deleteTemplate ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const uploadTemplateImage = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+
+    const { name, imageData, imageType } = req.body;
+    if (!name || !imageData || !imageType) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
+    const imageExtension = getImageExtension(imageType);
+    if (!imageExtension) {
+      return res.status(400).json({ msg: 'Invalid image type' });
+    }
+
+    const { url, s3Key } = await uploadBase64ToS3(
+      'template-images',
+      name.split('.')[0],
+      imageData,
+      imageType,
+      imageExtension
+    );
+
+    const data = {
+      name,
+      username: user.username,
+      url,
+      s3Key,
+      mimeType: imageType,
+      ext: imageExtension,
+      orgId: undefined,
+    };
+
+    const newImage = await templateImagesCol.insertOne(data);
+
+    return res.json({ ...data, _id: newImage.insertedId });
+  } catch (error) {
+    console.log('admin uploadTemplateImages ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const getTemplateImages = async (req: Request, res: Response) => {
+  try {
+    const images = await templateImagesCol.find({ orgId: undefined }).toArray();
+
+    return res.json(images);
+  } catch (error) {
+    console.log('admin getTemplateImages ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const deleteTemplateImage = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const image = await templateImagesCol.findOne({ _id: new ObjectId(id) });
+    if (!image) {
+      return res.status(404).json({ msg: 'Not found template' });
+    }
+
+    await templateImagesCol.deleteOne({ _id: image._id });
+
+    await deleteS3Objects([image.s3Key]);
+
+    return res.json({ msg: 'success' });
+  } catch (error) {
+    console.log('admin deleteTemplateImage ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
