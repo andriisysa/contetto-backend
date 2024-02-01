@@ -3,7 +3,7 @@ import { ObjectId, WithoutId } from 'mongodb';
 
 import { db } from '@/database';
 
-import { ITemplate } from '@/types/template.types';
+import { ITemplate, TemplateType } from '@/types/template.types';
 import { IOrg } from '@/types/org.types';
 
 const templatesCol = db.collection<WithoutId<ITemplate>>('templates');
@@ -11,7 +11,7 @@ const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
 
 export const createTemplate = async (req: Request, res: Response) => {
   try {
-    const { name, isPublic = false, orgIds = [], data } = req.body;
+    const { name, isPublic = false, price = 0, type = TemplateType.brochure, orgIds = [], data } = req.body;
 
     if (!name || !data) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -27,6 +27,8 @@ export const createTemplate = async (req: Request, res: Response) => {
       data,
       isPublic,
       orgIds: orgs.map((org) => org._id),
+      price,
+      type,
     };
 
     const newTmp = await templatesCol.insertOne(templateData);
@@ -41,7 +43,7 @@ export const createTemplate = async (req: Request, res: Response) => {
 export const updateTemplate = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, isPublic = false, orgIds = [], data } = req.body;
+    const { name, isPublic = false, price = 0, type = TemplateType.brochure, orgIds = [], data } = req.body;
 
     if (!name || !data) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -61,6 +63,8 @@ export const updateTemplate = async (req: Request, res: Response) => {
       name,
       data,
       isPublic,
+      price,
+      type,
       orgIds: orgs.map((org) => org._id),
     };
 

@@ -1,5 +1,6 @@
 import express from 'express';
 
+import adminAuth from '@/middlewares/adminAuth';
 import {
   createTemplate,
   deleteTemplate,
@@ -7,17 +8,22 @@ import {
   getTemplates,
   updateTemplate,
 } from '@/controllers/admin/templates';
-import { getOrgs } from '@/controllers/admin/orgs';
+import { getOrg, getOrgs } from '@/controllers/admin/orgs';
+import { adminGetMe, adminLogin } from '@/controllers/admin/auth';
 
 const adminRouter = express.Router();
 
 adminRouter
-  .post('/templates', createTemplate)
-  .get('/templates', getTemplates)
-  .get('/templates/:id', getTemplate)
-  .put('/templates/:id', updateTemplate)
-  .delete('/templates/:id', deleteTemplate)
+  .post('/login', adminLogin)
+  .get('/me', adminAuth, adminGetMe)
 
-  .get('/orgs', getOrgs);
+  .post('/templates', adminAuth, createTemplate)
+  .get('/templates', adminAuth, getTemplates)
+  .get('/templates/:id', adminAuth, getTemplate)
+  .put('/templates/:id', adminAuth, updateTemplate)
+  .delete('/templates/:id', adminAuth, deleteTemplate)
+
+  .get('/orgs', adminAuth, getOrgs)
+  .get('/org/:id', adminAuth, getOrg);
 
 export default adminRouter;

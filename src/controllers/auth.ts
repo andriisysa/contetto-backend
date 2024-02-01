@@ -124,7 +124,7 @@ export const login = async (req: Request, res: Response) => {
       return res.status(500).json({ msg: 'Server error' });
     }
 
-    return res.status(404).json({ msg: 'Password incorrect' });
+    return res.status(400).json({ msg: 'Password incorrect' });
   } catch (error) {
     console.log('login ===>', error);
     return res.status(500).json({ msg: 'login failed' });

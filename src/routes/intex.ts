@@ -5,7 +5,6 @@ import orgsRouter from './orgs';
 import agentsRouter from './agents';
 import citiesRouter from './cities';
 import { getAllRooms } from '@/controllers/rooms';
-import adminAuth from '@/middlewares/adminAuth';
 import adminRouter from './admin';
 import fileShareRouter from './fileshare';
 
@@ -21,6 +20,7 @@ router
   .use('/agents', auth, agentsRouter)
   .use('/cities', auth, citiesRouter)
   .use('/fileshare', fileShareRouter)
-  .use('/admin', adminAuth, adminRouter);
+
+  .use('/admin', adminRouter);
 
 export default router;
