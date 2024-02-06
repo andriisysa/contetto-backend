@@ -3,7 +3,7 @@ import { ObjectId, WithoutId } from 'mongodb';
 
 import { db } from '@/database';
 
-import { ITemplate, ITemplateImage, TemplateType } from '@/types/template.types';
+import { ITemplate, ITemplateImage, ITemplateLayout, TemplateType } from '@/types/template.types';
 import { IOrg } from '@/types/org.types';
 import { getNow } from '@/utils';
 import { getImageExtension } from '@/utils/extension';
@@ -11,12 +11,13 @@ import { deleteS3Objects, uploadBase64ToS3 } from '@/utils/s3';
 import { IUser } from '@/types/user.types';
 
 const templatesCol = db.collection<WithoutId<ITemplate>>('templates');
+const templateLayoutsCol = db.collection<WithoutId<ITemplateLayout>>('templateLayouts');
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
 const templateImagesCol = db.collection<WithoutId<ITemplateImage>>('templateImages');
 
 export const createTemplate = async (req: Request, res: Response) => {
   try {
-    const { name, isPublic = false, price = 0, type = TemplateType.brochure, orgIds = [], data } = req.body;
+    const { name, isPublic = false, price = 0, type = TemplateType.brochure, orgIds = [], layoutId, data } = req.body;
 
     if (!name || !data) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -27,6 +28,11 @@ export const createTemplate = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Bad request' });
     }
 
+    const layout = await templateLayoutsCol.findOne({ _id: new ObjectId(layoutId) });
+    if (!layout) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
     const templateData: WithoutId<ITemplate> = {
       name,
       data,
@@ -34,6 +40,8 @@ export const createTemplate = async (req: Request, res: Response) => {
       orgIds: orgs.map((org) => org._id),
       price,
       type,
+      layoutId: layout._id,
+      layout,
       createdAt: getNow(),
       updatedAt: getNow(),
     };
@@ -50,7 +58,7 @@ export const createTemplate = async (req: Request, res: Response) => {
 export const updateTemplate = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, isPublic = false, price = 0, type = TemplateType.brochure, orgIds = [], data } = req.body;
+    const { name, isPublic = false, price = 0, type = TemplateType.brochure, orgIds = [], layoutId, data } = req.body;
 
     if (!name || !data) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -66,6 +74,11 @@ export const updateTemplate = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Bad request' });
     }
 
+    const layout = await templateLayoutsCol.findOne({ _id: new ObjectId(layoutId) });
+    if (!layout) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
     const templateData: WithoutId<ITemplate> = {
       ...template,
       name,
@@ -74,6 +87,8 @@ export const updateTemplate = async (req: Request, res: Response) => {
       price,
       type,
       orgIds: orgs.map((org) => org._id),
+      layoutId: layout._id,
+      layout,
       updatedAt: getNow(),
     };
 

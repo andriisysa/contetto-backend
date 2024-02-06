@@ -1,5 +1,12 @@
 import { ObjectId } from 'mongodb';
 
+export interface ITemplateLayout {
+  _id: ObjectId;
+  name: string;
+  width: number;
+  height: number;
+}
+
 export enum TemplateType {
   brochure = 'brochure',
   social = 'social',
@@ -13,6 +20,8 @@ export interface ITemplate {
   price: number; // 0 for free, price unit usd
   type: TemplateType;
   data: any;
+  layoutId: ObjectId;
+  layout?: ITemplateLayout;
   createdAt: number;
   updatedAt: number;
 }

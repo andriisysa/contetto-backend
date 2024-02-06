@@ -70,3 +70,11 @@ export const mediaScheme = {
     body('permission').isString().withMessage('Permission is required!'),
   ],
 };
+
+export const templateLayoutScheme = {
+  create: [
+    body('name').isString().withMessage('Name is required!'),
+    body('width').isNumeric().withMessage('Width is required!'),
+    body('height').isNumeric().withMessage('Height is required!'),
+  ],
+};
