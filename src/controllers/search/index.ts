@@ -1292,3 +1292,25 @@ export const deleteSearchResult = async (req: Request, res: Response) => {
     return res.status(500).json({ msg: 'Server error' });
   }
 };
+
+export const searchPropertiesByAddress = async (req: Request, res: Response) => {
+  try {
+    const { address } = req.query;
+
+    const properties = await listingsCol
+      .find({
+        UnparsedAddress: {
+          $regex: String(address)
+            .trim()
+            .replace(/[-[\]{}()*+?.,\\/^$|#\s]/g, '\\$&'),
+          $options: 'i',
+        },
+      })
+      .limit(5);
+
+    return res.json(properties);
+  } catch (error) {
+    console.log('searchPropertiesByAddress error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};

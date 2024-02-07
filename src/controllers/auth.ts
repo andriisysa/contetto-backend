@@ -93,6 +93,7 @@ export const confirmEmail = async (req: Request, res: Response) => {
         owner: user.username,
         logoUrl: '',
         mlsFeeds: [],
+        createdAt: getNow(),
         deleted: false,
       };
 

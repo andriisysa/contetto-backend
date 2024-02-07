@@ -12,8 +12,10 @@ import {
   inviteAgent,
   leaveOrg,
   removeMember,
+  setBrand,
   setWhiteLabel,
   update,
+  uploadBrandLogo,
 } from '@/controllers/orgs';
 import orgRoleAuth from '@/middlewares/roleAuth';
 import { AgentRole } from '@/types/agentProfile.types';
@@ -44,6 +46,7 @@ import {
   shortlistProperty,
   undoProperty,
   shareProperty,
+  searchPropertiesByAddress,
 } from '@/controllers/search';
 import { agentOrContact, searchResultAuth } from '@/middlewares/searchAuth';
 import { addMemberToChannel, createChannel, createDm, updateChannel } from '@/controllers/rooms';
@@ -65,6 +68,24 @@ import {
   storeFile,
 } from '@/controllers/media';
 import { folderAuth } from '@/middlewares/folderAuth';
+import {
+  addOrgTemplate,
+  deleteOrgTemplate,
+  getOrgTemplate,
+  getOrgTemplates,
+  getTemplates,
+  hideShowTemplate,
+} from '@/controllers/templates';
+import {
+  createBrochure,
+  deleteBrochure,
+  deleteBrochureImage,
+  getBrochure,
+  getBrochureImages,
+  getBrochures,
+  updateBrochure,
+  uploadBrochureImage,
+} from '@/controllers/templates/brochure';
 
 const orgsRouter = express.Router();
 
@@ -76,6 +97,8 @@ orgsRouter
   .get('', getMyOrgs)
   .delete('/:id', orgRoleAuth(AgentRole.owner), deleteOne)
   .post('/:id/set-whitelabel', orgRoleAuth(AgentRole.admin), setWhiteLabel)
+  .post('/:id/brand/logo', orgRoleAuth(AgentRole.owner), uploadBrandLogo)
+  .post('/:id/brand', orgRoleAuth(AgentRole.owner), setBrand)
 
   // agents
   .get('/:id/members', orgRoleAuth(AgentRole.agent), getOrgMembers)
@@ -102,6 +125,7 @@ orgsRouter
 
   // search
   .get('/:id/search', agentOrContact, searchListings)
+  .get('/:id/search/address', orgRoleAuth(AgentRole.agent), searchPropertiesByAddress)
   .post('/:id/search-results/:searchId', validate(searchScheme.save), searchResultAuth(false), saveSearch)
   .post('/:id/search-results/:searchId/share', validate(searchScheme.share), orgRoleAuth(AgentRole.agent), shareSearch)
   // get search results for me whether it's an agent or a contact
@@ -149,6 +173,26 @@ orgsRouter
   .put('/:id/files/:fileId/rename', validate(mediaScheme.create), agentOrContact, renameFile)
   .post('/:id/files/:fileId/share', validate(mediaScheme.shareFile), orgRoleAuth(AgentRole.agent), shareFile)
   .post('/:id/files/:fileId/share/:contactId', orgRoleAuth(AgentRole.agent), shareForAgentOnlyFile)
-  .get('/:id/files/:fileId/share-link', orgRoleAuth(AgentRole.agent), getFileShareLink);
+  .get('/:id/files/:fileId/share-link', orgRoleAuth(AgentRole.agent), getFileShareLink)
+
+  // templates
+  .get('/:id/templates', orgRoleAuth(AgentRole.owner), getTemplates)
+  .post('/:id/org-templates', orgRoleAuth(AgentRole.owner), addOrgTemplate)
+  .get('/:id/org-templates', orgRoleAuth(AgentRole.agent), getOrgTemplates)
+  .get('/:id/org-templates/:templateId', orgRoleAuth(AgentRole.agent), getOrgTemplate)
+  .put('/:id/org-templates/:templateId', orgRoleAuth(AgentRole.owner), hideShowTemplate)
+  .delete('/:id/org-templates/:templateId', orgRoleAuth(AgentRole.owner), deleteOrgTemplate)
+
+  // brochures
+  .post('/:id/brochures', orgRoleAuth(AgentRole.agent), createBrochure)
+  .get('/:id/brochures', orgRoleAuth(AgentRole.agent), getBrochures)
+  .get('/:id/brochures/:brochureId', orgRoleAuth(AgentRole.agent), getBrochure)
+  .put('/:id/brochures/:brochureId', orgRoleAuth(AgentRole.agent), updateBrochure)
+  .delete('/:id/brochures/:brochureId', orgRoleAuth(AgentRole.agent), deleteBrochure)
+
+  // brochure images
+  .post('/:id/brochure-images', orgRoleAuth(AgentRole.agent), uploadBrochureImage)
+  .get('/:id/brochure-images', orgRoleAuth(AgentRole.agent), getBrochureImages)
+  .delete('/:id/brochure-images/:imageId', orgRoleAuth(AgentRole.agent), deleteBrochureImage);
 
 export default orgsRouter;

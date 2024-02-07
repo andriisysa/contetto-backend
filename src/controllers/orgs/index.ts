@@ -5,7 +5,7 @@ import { db } from '@/database';
 
 import { getNow, getRandomString } from '@/utils';
 import { sendEmail } from '@/utils/email';
-import { DefaultAvaOrgTheme, IOrg } from '@/types/org.types';
+import { DefaultAvaOrgTheme, IOrg, IOrgBrand } from '@/types/org.types';
 import { IUser } from '@/types/user.types';
 import { AgentRole, IAgentProfile, roleOrder } from '@/types/agentProfile.types';
 import { IInvite } from '@/types/invite.types';
@@ -54,6 +54,7 @@ export const create = async (req: Request, res: Response) => {
       owner: user.username,
       logoUrl,
       mlsFeeds,
+      createdAt: getNow(),
       deleted: false,
     };
 
@@ -72,7 +73,7 @@ export const update = async (req: Request, res: Response) => {
 
     const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
     if (!org) {
-      return res.status(400).json({ msg: 'Organization does not exist' });
+      return res.status(404).json({ msg: 'Organization does not exist' });
     }
 
     let { name, logoUrl, logoFileType, mlsFeeds = [] } = req.body;
@@ -110,7 +111,7 @@ export const getOne = async (req: Request, res: Response) => {
     const { id: orgId } = req.params;
     const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
     if (!org) {
-      return res.status(400).json({ msg: 'Organization does not exist' });
+      return res.status(404).json({ msg: 'Organization does not exist' });
     }
 
     return res.json({ org, agentProfile: req.agentProfile });
@@ -125,7 +126,7 @@ export const deleteOne = async (req: Request, res: Response) => {
     const { id: orgId } = req.params;
     const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
     if (!org) {
-      return res.status(400).json({ msg: 'Organization does not exist' });
+      return res.status(404).json({ msg: 'Organization does not exist' });
     }
 
     await orgsCol.updateOne({ _id: new ObjectId(orgId) }, { $set: { deleted: true, deletedAt: getNow() } });
@@ -423,5 +424,70 @@ export const setWhiteLabel = async (req: Request, res: Response) => {
   } catch (error) {
     console.log('org update error ===>', error);
     return res.status(500).json({ msg: 'Organization update error' });
+  }
+};
+
+export const uploadBrandLogo = async (req: Request, res: Response) => {
+  try {
+    const { id: orgId } = req.params;
+
+    const org = await orgsCol.findOne({ _id: new ObjectId(orgId), deleted: false });
+    if (!org) {
+      return res.status(404).json({ msg: 'Organization does not exist' });
+    }
+
+    const { logoUrl = '', logoFileType } = req.body;
+
+    if (logoUrl && logoFileType) {
+      const imageExtension = getImageExtension(logoFileType);
+      if (!imageExtension) {
+        return res.status(400).json({ msg: 'Invalid image type' });
+      }
+
+      const { url } = await uploadBase64ToS3(
+        'orgs/brand',
+        org.name.split(' ')[0],
+        logoUrl,
+        logoFileType,
+        imageExtension
+      );
+
+      return res.json({ url });
+    }
+
+    return res.status(400).json({ msg: 'bad request' });
+  } catch (error) {
+    console.log('uploadBrandLogo error===>', error);
+    return res.status(500).json({ msg: 'upload failed' });
+  }
+};
+
+export const setBrand = async (req: Request, res: Response) => {
+  try {
+    const agentProfile = req.agentProfile as IAgentProfile;
+
+    const { name, logos = [], colors = [], titleFont = '', bodyFont = '' } = req.body;
+
+    const brand: IOrgBrand = {
+      logos,
+      colors,
+      titleFont,
+      bodyFont,
+    };
+
+    await orgsCol.updateOne(
+      { _id: agentProfile.orgId },
+      {
+        $set: {
+          name,
+          brand,
+        },
+      }
+    );
+
+    return res.json({ msg: 'Brand is updated!' });
+  } catch (error) {
+    console.log('org update error ===>', error);
+    return res.status(500).json({ msg: 'server error' });
   }
 };

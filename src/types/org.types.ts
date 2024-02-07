@@ -11,12 +11,19 @@ export interface IMLSFeed {
 }
 
 export interface DefaultAvaOrgTheme {
-  title: string
-  primary: string
-  secondary: string
-  background: string
-  fontFamily: string
-  description: string
+  title: string;
+  primary: string;
+  secondary: string;
+  background: string;
+  fontFamily: string;
+  description: string;
+}
+
+export interface IOrgBrand {
+  logos: string[];
+  colors: string[];
+  titleFont: string;
+  bodyFont: string;
 }
 
 export interface IOrg {
@@ -27,5 +34,7 @@ export interface IOrg {
   mlsFeeds?: IMLSFeed[];
   deleted: boolean;
   deletedAt?: number;
-  whiteLabel?: DefaultAvaOrgTheme
+  createdAt: number;
+  brand?: IOrgBrand;
+  whiteLabel?: DefaultAvaOrgTheme;
 }
