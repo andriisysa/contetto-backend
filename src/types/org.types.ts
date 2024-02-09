@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { IIndustry } from './industry.types';
 
 export enum MLSSource {
   crea = 'crea',
@@ -32,6 +33,8 @@ export interface IOrg {
   owner: string; // username
   logoUrl?: string;
   mlsFeeds?: IMLSFeed[];
+  industryId: ObjectId;
+  industry?: IIndustry;
   deleted: boolean;
   deletedAt?: number;
   createdAt: number;

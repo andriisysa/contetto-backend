@@ -12,11 +12,13 @@ import { IInvite } from '@/types/invite.types';
 import { IContact } from '@/types/contact.types';
 import { getImageExtension } from '@/utils/extension';
 import { uploadBase64ToS3 } from '@/utils/s3';
+import { IIndustry } from '@/types/industry.types';
 
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
 const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles');
 const invitesCol = db.collection<WithoutId<IInvite>>('invites');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
+const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
 
 export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
   const newOrg = await orgsCol.insertOne(orgData);
@@ -37,7 +39,12 @@ export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
 export const create = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
-    let { name, logoUrl = '', logoFileType, mlsFeeds = [] } = req.body;
+    let { name, logoUrl = '', logoFileType, mlsFeeds = [], industryId } = req.body;
+
+    const industry = await industriesCol.findOne({ _id: new ObjectId(industryId) });
+    if (!industry) {
+      return res.status(404).json({ msg: 'Not found industry' });
+    }
 
     if (logoUrl && logoFileType) {
       const imageExtension = getImageExtension(logoFileType);
@@ -52,6 +59,7 @@ export const create = async (req: Request, res: Response) => {
     const orgData: WithoutId<IOrg> = {
       name,
       owner: user.username,
+      industryId: industry._id,
       logoUrl,
       mlsFeeds,
       createdAt: getNow(),

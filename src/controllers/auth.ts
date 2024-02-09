@@ -1,5 +1,4 @@
 import type { Request, Response } from 'express';
-import { randomInt } from 'crypto';
 import { WithoutId } from 'mongodb';
 
 import { db } from '@/database';
@@ -11,14 +10,16 @@ import { getNow, getRandomDigits } from '@/utils';
 import { sendEmail } from '@/utils/email';
 import { createOrg } from './orgs';
 import { IOrg } from '@/types/org.types';
+import { IIndustry } from '@/types/industry.types';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
+const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
 
 export const singup = async (req: Request, res: Response) => {
   try {
     let { username, email, password } = req.body;
     username = String(username).toLowerCase().trim();
-    if (username.includes(" ")) {
+    if (username.includes(' ')) {
       return res.status(400).json({ msg: 'Username should not include space' });
     }
     email = String(email).trim();
@@ -91,9 +92,11 @@ export const confirmEmail = async (req: Request, res: Response) => {
     );
 
     if (orgNeeded) {
+      const generalIndustry = await industriesCol.findOne({ name: 'General' });
       const orgData: WithoutId<IOrg> = {
         name: `${user.username}'s personal org`,
         owner: user.username,
+        industryId: generalIndustry!._id,
         logoUrl: '',
         mlsFeeds: [],
         createdAt: getNow(),

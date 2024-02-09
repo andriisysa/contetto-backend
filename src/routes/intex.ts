@@ -7,6 +7,7 @@ import citiesRouter from './cities';
 import { getAllRooms } from '@/controllers/rooms';
 import adminRouter from './admin';
 import fileShareRouter from './fileshare';
+import { getIndustries } from '@/controllers/admin/industry';
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ router
   .get('/health', (_, res) => res.status(200).send('OK'))
 
   .get('/rooms', auth, getAllRooms)
+  .get('/industries', auth, getIndustries)
   .use('/auth', authRouter)
   .use('/orgs', auth, orgsRouter)
   .use('/agents', auth, agentsRouter)

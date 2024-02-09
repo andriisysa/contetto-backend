@@ -9,15 +9,26 @@ import { getNow } from '@/utils';
 import { getImageExtension } from '@/utils/extension';
 import { deleteS3Objects, uploadBase64ToS3 } from '@/utils/s3';
 import { IUser } from '@/types/user.types';
+import { IIndustry } from '@/types/industry.types';
 
 const templatesCol = db.collection<WithoutId<ITemplate>>('templates');
 const templateLayoutsCol = db.collection<WithoutId<ITemplateLayout>>('templateLayouts');
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
 const templateImagesCol = db.collection<WithoutId<ITemplateImage>>('templateImages');
+const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
 
 export const createTemplate = async (req: Request, res: Response) => {
   try {
-    const { name, isPublic = false, price = 0, type = TemplateType.brochure, orgIds = [], layoutId, data } = req.body;
+    const {
+      name,
+      isPublic = false,
+      price = 0,
+      type = TemplateType.brochure,
+      orgIds = [],
+      layoutId,
+      industryIds = [],
+      data,
+    } = req.body;
 
     if (!name || !data) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -33,6 +44,15 @@ export const createTemplate = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Bad request' });
     }
 
+    const industries = await industriesCol
+      .find({
+        _id: { $in: industryIds.map((id: string) => new ObjectId(id)) },
+      })
+      .toArray();
+    if (industryIds.length !== industries.length) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
     const templateData: WithoutId<ITemplate> = {
       name,
       data,
@@ -42,6 +62,8 @@ export const createTemplate = async (req: Request, res: Response) => {
       type,
       layoutId: layout._id,
       layout,
+      industryIds: industries.map((industry) => industry._id),
+      industries,
       createdAt: getNow(),
       updatedAt: getNow(),
     };
@@ -58,7 +80,16 @@ export const createTemplate = async (req: Request, res: Response) => {
 export const updateTemplate = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, isPublic = false, price = 0, type = TemplateType.brochure, orgIds = [], layoutId, data } = req.body;
+    const {
+      name,
+      isPublic = false,
+      price = 0,
+      type = TemplateType.brochure,
+      orgIds = [],
+      layoutId,
+      industryIds = [],
+      data,
+    } = req.body;
 
     if (!name || !data) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -76,6 +107,15 @@ export const updateTemplate = async (req: Request, res: Response) => {
 
     const layout = await templateLayoutsCol.findOne({ _id: new ObjectId(layoutId) });
     if (!layout) {
+      return res.status(400).json({ msg: 'Not found layout' });
+    }
+
+    const industries = await industriesCol
+      .find({
+        _id: { $in: industryIds.map((id: string) => new ObjectId(id)) },
+      })
+      .toArray();
+    if (industryIds.length !== industries.length) {
       return res.status(400).json({ msg: 'Bad request' });
     }
 
@@ -89,6 +129,8 @@ export const updateTemplate = async (req: Request, res: Response) => {
       orgIds: orgs.map((org) => org._id),
       layoutId: layout._id,
       layout,
+      industryIds: industries.map((industry) => industry._id),
+      industries,
       updatedAt: getNow(),
     };
 

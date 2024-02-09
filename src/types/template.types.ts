@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { IIndustry } from './industry.types';
 
 export interface ITemplateLayout {
   _id: ObjectId;
@@ -15,13 +16,15 @@ export enum TemplateType {
 export interface ITemplate {
   _id: ObjectId;
   name: string;
+  layoutId: ObjectId;
+  layout?: ITemplateLayout;
+  industryIds: ObjectId[];
+  industries?: IIndustry[];
   orgIds: ObjectId[];
   isPublic: boolean;
   price: number; // 0 for free, price unit usd
   type: TemplateType;
   data: any;
-  layoutId: ObjectId;
-  layout?: ITemplateLayout;
   createdAt: number;
   updatedAt: number;
 }
