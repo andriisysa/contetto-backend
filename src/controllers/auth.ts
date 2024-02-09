@@ -18,6 +18,9 @@ export const singup = async (req: Request, res: Response) => {
   try {
     let { username, email, password } = req.body;
     username = String(username).toLowerCase().trim();
+    if (username.includes(" ")) {
+      return res.status(400).json({ msg: 'Username should not include space' });
+    }
     email = String(email).trim();
     password = await encrypt(password);
     const verificationCode = getRandomDigits(4);

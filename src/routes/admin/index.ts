@@ -22,6 +22,13 @@ import {
 } from '@/controllers/admin/templateLayout';
 import { templateLayoutScheme } from '@/schema';
 import validate from '@/middlewares/validation';
+import {
+  createIndustry,
+  deleteIndustry,
+  getIndustries,
+  getIndustry,
+  updateIndustry,
+} from '@/controllers/admin/industry';
 
 const adminRouter = express.Router();
 
@@ -46,6 +53,12 @@ adminRouter
   .delete('/template-layouts/:id', adminAuth, deleteTemplateLayout)
 
   .get('/orgs', adminAuth, getOrgs)
-  .get('/org/:id', adminAuth, getOrg);
+  .get('/org/:id', adminAuth, getOrg)
+
+  .post('/industries', adminAuth, createIndustry)
+  .get('/industries', adminAuth, getIndustries)
+  .get('/industries/:id', adminAuth, getIndustry)
+  .put('/industries/:id', adminAuth, updateIndustry)
+  .delete('/industries/:id', adminAuth, deleteIndustry);
 
 export default adminRouter;
