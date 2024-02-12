@@ -65,6 +65,9 @@ export enum ServerMessageType {
   msgTyping = 'msg:typing',
   msgDelete = 'msg:delete',
 
+  // notification for electron app
+  electronNotification = "electron:notification",
+
   // error
   invalidRequest = 'error:invalid',
   authError = 'error:auth',

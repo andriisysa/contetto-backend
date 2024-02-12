@@ -45,7 +45,6 @@ export const createChannel = async (req: Request, res: Response) => {
           unRead: false,
           firstNotiMessage: undefined,
           firstUnReadmessage: undefined,
-          socketId: user.socketId,
         },
       },
       createdAt: getNow(),
@@ -149,20 +148,19 @@ export const createDm = async (req: Request, res: Response) => {
       type: RoomType.dm,
       dmInitiated: false,
       userStatus: {
-        ...users.reduce(
-          (obj, u) => ({
+        ...users.reduce((obj, u) => {
+          const socketIds = u.socketIds;
+          return {
             ...obj,
             [u.username]: {
-              online: !!u.socketId,
+              online: socketIds ? socketIds.length > 0 : false,
               notis: 0,
               unRead: false,
               firstNotiMessage: undefined,
               firstUnReadmessage: undefined,
-              socketId: u.socketId,
             },
-          }),
-          {}
-        ),
+          };
+        }, {}),
         ...contactProfiles
           .filter((cp) => !cp.username)
           .reduce(
@@ -217,9 +215,11 @@ export const updateChannel = async (req: Request, res: Response) => {
     // send message in all members
     const users = await usersCol.find({ username: room.usernames }).toArray();
     users.forEach((user) => {
-      if (io && user.socketId) {
-        io.to(user.socketId).emit(ServerMessageType.channelUpdate, { ...room, ...data });
-      }
+      user.socketIds?.forEach((socketId) => {
+        if (io) {
+          io.to(socketId).emit(ServerMessageType.channelUpdate, { ...room, ...data });
+        }
+      });
     });
 
     return res.json({ ...room, ...data });
@@ -338,10 +338,9 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
             ...obj,
             [u.username]: {
               ...room.userStatus[u.username],
-              online: !!u.socketId,
+              online: u.socketIds ? u.socketIds.length > 0 : false,
               unRead: true,
               firstUnReadmessage: room.userStatus[u.username].firstUnReadmessage || newMessage.insertedId,
-              socketId: u.socketId,
             },
           }),
           {}
@@ -350,12 +349,11 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
           (obj, u) => ({
             ...obj,
             [u.username]: {
-              online: !!u.socketId,
+              online: u.socketIds ? u.socketIds.length > 0 : false,
               notis: 1,
               unRead: true,
               firstNotiMessage: newMessage.insertedId,
               firstUnReadmessage: newMessage.insertedId,
-              socketId: u.socketId,
             },
           }),
           {}
@@ -377,21 +375,27 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
 
     // send message to all members in channel
     newUsers.forEach((u) => {
-      if (io && u.socketId) {
-        io.to(u.socketId).emit(ServerMessageType.channelJoin, roomData);
-      }
+      u.socketIds?.forEach((socketId) => {
+        if (io) {
+          io.to(socketId).emit(ServerMessageType.channelJoin, roomData);
+        }
+      });
     });
 
     existingUsers.forEach((u) => {
-      if (io && u.socketId && u.username !== user.username) {
-        io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
-      }
+      u.socketIds?.forEach((socketId) => {
+        if (io) {
+          io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
+        }
+      });
     });
 
     [...newUsers, ...existingUsers].forEach((u) => {
-      if (io && u.socketId) {
-        io.to(u.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMessage.insertedId });
-      }
+      u.socketIds?.forEach((socketId) => {
+        if (io) {
+          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMessage.insertedId });
+        }
+      });
     });
 
     // send email

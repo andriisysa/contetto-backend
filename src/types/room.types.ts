@@ -9,7 +9,7 @@ export interface IRoomUserStatus {
     unRead: boolean; // unread messages exists or not
     firstUnReadmessage?: ObjectId;
     firstNotiMessage?: ObjectId;
-    socketId?: string;
+    // socketId?: string;
   };
 }
 

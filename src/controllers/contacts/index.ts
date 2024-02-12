@@ -91,12 +91,11 @@ export const createContact = async (req: Request, res: Response) => {
       dmInitiated: false,
       userStatus: {
         [user.username]: {
-          online: !!user.socketId,
+          online: true,
           notis: 0,
           unRead: false,
           firstNotiMessage: undefined,
           firstUnReadmessage: undefined,
-          socketId: user.socketId,
         },
         [newContact.insertedId.toString()]: {
           online: false,
@@ -112,9 +111,11 @@ export const createContact = async (req: Request, res: Response) => {
     };
     const newRoom = await roomsCol.insertOne(roomData);
 
-    if (io && user.socketId) {
-      io.to(user.socketId).emit(ServerMessageType.dmCreate, { ...roomData, _id: newRoom.insertedId });
-    }
+    user.socketIds?.forEach((socketId) => {
+      if (io) {
+        io.to(socketId).emit(ServerMessageType.dmCreate, { ...roomData, _id: newRoom.insertedId });
+      }
+    });
 
     return res.json({ ...data, _id: newContact.insertedId });
   } catch (error) {
@@ -311,7 +312,6 @@ export const shareContact = async (req: Request, res: Response) => {
 
 export const bindContact = async (req: Request, res: Response) => {
   try {
-    const user = req.user as IUser;
     const { contactId } = req.params;
     const { inviteCode } = req.body;
 
@@ -328,6 +328,8 @@ export const bindContact = async (req: Request, res: Response) => {
     if (contact.inviteCode !== inviteCode) {
       return res.status(400).json({ msg: 'Invalide code' });
     }
+
+    const user = (await usersCol.findOne({ username: req.user?.username })) as IUser;
 
     const existingContact = await contactsCol.findOne({
       orgId: contact.orgId,
@@ -374,8 +376,7 @@ export const bindContact = async (req: Request, res: Response) => {
           ...room.userStatus,
           [user.username]: {
             ...room.userStatus[contact._id.toString()],
-            online: !!user.socketId,
-            socketId: user.socketId,
+            online: true,
           },
         },
       };
@@ -386,9 +387,11 @@ export const bindContact = async (req: Request, res: Response) => {
         }
       );
 
-      if (io && user.socketId) {
-        io.to(user.socketId).emit(ServerMessageType.channelUpdate, { ...room, ...updateData });
-      }
+      user.socketIds?.forEach((socketId) => {
+        if (io) {
+          io.to(socketId).emit(ServerMessageType.channelUpdate, { ...room, ...updateData });
+        }
+      });
     }
 
     return res.json({ ...contact, username: user.username });

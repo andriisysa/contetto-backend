@@ -16,6 +16,21 @@ const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
 
 export let io: Server | undefined = undefined;
 
+export const clearConns = async () => {
+  if (io) {
+    const socketIds = [...io.sockets.sockets.keys()];
+    console.log(socketIds);
+    await usersCol.updateMany(
+      { socketIds: { $in: socketIds } },
+      {
+        $pullAll: {
+          socketIds: socketIds,
+        },
+      }
+    );
+  }
+};
+
 const setupSocketServer = async (httpServer: http.Server) => {
   try {
     console.log('Create socket collection');
@@ -65,8 +80,8 @@ const setupSocketServer = async (httpServer: http.Server) => {
         await usersCol.updateOne(
           { username: user.username },
           {
-            $set: {
-              socketId: socket.id,
+            $addToSet: {
+              socketIds: socket.id,
             },
           }
         );
@@ -76,7 +91,6 @@ const setupSocketServer = async (httpServer: http.Server) => {
           {
             $set: {
               [`userStatus.${user.username}.online`]: true,
-              [`userStatus.${user.username}.socketId`]: socket.id,
             },
           }
         );
@@ -97,14 +111,15 @@ const setupSocketServer = async (httpServer: http.Server) => {
 
     // when socket is disconnected
     socket.on('disconnect', async (as: any) => {
-      const user = socket.user;
+      let user = socket.user;
       if (user) {
+        user = (await usersCol.findOne({ username: user.username })) as IUser;
         // update user
         await usersCol.updateOne(
           { username: user.username },
           {
-            $set: {
-              socketId: undefined,
+            $pull: {
+              socketIds: socket.id,
             },
           }
         );
@@ -113,8 +128,7 @@ const setupSocketServer = async (httpServer: http.Server) => {
           { usernames: user.username },
           {
             $set: {
-              [`userStatus.${user.username}.online`]: false,
-              [`userStatus.${user.username}.socketId`]: undefined,
+              [`userStatus.${user.username}.online`]: user.socketIds ? user.socketIds.length > 1 : false,
             },
           }
         );

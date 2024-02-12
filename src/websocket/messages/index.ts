@@ -94,7 +94,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
       const newMsg = await messagesCol.insertOne(msgData);
 
       // count mentions/dms
-      const mentionUsers =
+      const mentionedUserNames =
         room.type === RoomType.dm
           ? room.usernames.filter((un) => un !== user.username)
           : mentions.filter((name) => room.usernames.includes(name) && name !== user.username);
@@ -106,23 +106,22 @@ export const messageHandler = (io: Server, socket: Socket) => {
           ...room.userStatus,
           ...room.usernames
             .filter((un) => un !== user.username)
-            .reduce(
-              (obj, un) => ({
+            .reduce((obj, un) => {
+              const socketIds = users.find((u) => u.username === un)?.socketIds;
+              return {
                 ...obj,
                 [un]: {
                   ...room.userStatus[un],
-                  online: !!users.find((u) => u.username === un)?.socketId,
-                  notis: mentionUsers.includes(un) ? room.userStatus[un].notis + 1 : room.userStatus[un].notis,
+                  online: socketIds ? socketIds.length > 0 : false,
+                  notis: mentionedUserNames.includes(un) ? room.userStatus[un].notis + 1 : room.userStatus[un].notis,
                   unRead: true,
-                  firstNotiMessage: mentionUsers.includes(un)
+                  firstNotiMessage: mentionedUserNames.includes(un)
                     ? room.userStatus[un].firstNotiMessage || newMsg.insertedId
                     : room.userStatus[un].firstNotiMessage,
                   firstUnReadmessage: room.userStatus[un].firstUnReadmessage || newMsg.insertedId,
-                  socketId: users.find((u) => u.username === un)?.socketId,
                 },
-              }),
-              {}
-            ),
+              };
+            }, {}),
         },
       };
 
@@ -134,18 +133,17 @@ export const messageHandler = (io: Server, socket: Socket) => {
 
       // send message to clients
       users.forEach((u) => {
-        if (u.socketId) {
-          // update room
-          io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
+        u.socketIds?.forEach((socketId) => {
+          io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
 
           // send message
-          io.to(u.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
-        }
+          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
+        });
       });
 
-      const offLineMentionedUsers = users.filter((u) => mentionUsers.includes(u.username)).filter((u) => !u.socketId);
+      const mentionedUsers = users.filter((u) => mentionedUserNames.includes(u.username));
       // send email if offline
-      offLineMentionedUsers.forEach(async (u) => {
+      mentionedUsers.forEach(async (u) => {
         try {
           const agent = roomData.agents.find((a) => a.username === u.username);
           if (agent) {
@@ -241,12 +239,12 @@ export const messageHandler = (io: Server, socket: Socket) => {
 
       // send message to clients
       users.forEach((u) => {
-        if (u.socketId) {
-          io.to(u.socketId).emit(ServerMessageType.msgUpdate, {
+        u.socketIds?.forEach((socketId) => {
+          io.to(socketId).emit(ServerMessageType.msgUpdate, {
             ...message,
             ...msgUpdateData,
           });
-        }
+        });
       });
 
       if (additionalMentions.length) {
@@ -257,21 +255,20 @@ export const messageHandler = (io: Server, socket: Socket) => {
             ...room.userStatus,
             ...users
               .filter((u) => additionalMentions.includes(u.username))
-              .reduce(
-                (obj, u) => ({
+              .reduce((obj, u) => {
+                const socketIds = u.socketIds;
+                return {
                   ...obj,
                   [u.username]: {
                     ...room.userStatus[u.username],
-                    online: !!u.socketId,
+                    online: socketIds ? socketIds.length > 0 : false,
                     notis: room.userStatus[u.username].notis + 1,
                     unRead: true,
                     firstNotiMessage: room.userStatus[u.username].firstNotiMessage || message._id,
                     firstUnReadmessage: room.userStatus[u.username].firstUnReadmessage || message._id,
-                    socketId: u.socketId,
                   },
-                }),
-                {}
-              ),
+                };
+              }, {}),
           },
         };
 
@@ -281,9 +278,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
         users
           .filter((u) => additionalMentions.includes(u.username))
           .forEach((u) => {
-            if (u.socketId) {
-              io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
-            }
+            u.socketIds?.forEach((socketId) => io.to(socketId).emit(ServerMessageType.channelUpdate, roomData));
           });
       }
     } catch (error) {
@@ -316,9 +311,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
       const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
 
       users.forEach((u) => {
-        if (u.socketId) {
-          io.to(u.socketId).emit(ServerMessageType.msgDelete, message);
-        }
+        u.socketIds?.forEach((socketId) => io.to(socketId).emit(ServerMessageType.msgDelete, message));
       });
     } catch (error) {
       console.log('sendMessage error ===>', error);
@@ -338,7 +331,6 @@ export const messageHandler = (io: Server, socket: Socket) => {
           unRead: false,
           firstNotiMessage: undefined,
           firstUnReadmessage: undefined,
-          socketId: socket.id,
         },
       };
       await roomsCol.updateOne({ _id: room._id }, { $set: { userStatus: roomUserStatus } });
@@ -357,15 +349,17 @@ export const messageHandler = (io: Server, socket: Socket) => {
       // get all users
       const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
 
-      users.forEach((u) => {
-        if (u.socketId && u.username !== user.username) {
-          io.to(u.socketId).emit(ServerMessageType.msgTyping, {
-            roomId: room._id,
-            username: user.username,
-            typing: !!typing,
-          });
-        }
-      });
+      users
+        .filter((u) => u.username !== user.username)
+        .forEach((u) => {
+          u.socketIds?.forEach((socketId) =>
+            io.to(socketId).emit(ServerMessageType.msgTyping, {
+              roomId: room._id,
+              username: user.username,
+              typing: !!typing,
+            })
+          );
+        });
     } catch (error) {
       console.log('sendMessage error ===>', error);
       return socket.emit(ServerMessageType.unknownError, error);

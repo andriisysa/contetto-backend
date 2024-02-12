@@ -6,7 +6,8 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import { client } from './database';
 import router from './routes/intex';
-import setupSocketServer from './socketServer';
+import setupSocketServer, { clearConns } from './socketServer';
+import { delay } from './utils';
 
 dotenv.config();
 
@@ -40,4 +41,18 @@ httpServer.listen(port, async () => {
   } catch (error) {
     console.log('db connection error ===>', error);
   }
+});
+
+process.on('SIGTERM', async () => {
+  console.log('The service is about to shut down!');
+
+  await clearConns();
+
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT');
+  await clearConns();
+  process.exit(0);
 });

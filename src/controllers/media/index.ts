@@ -1320,11 +1320,12 @@ const sendMessage = async (agentProfile: IAgentProfile, contact: IContact, folde
       ...dm,
       userStatus: {
         ...dm.userStatus,
-        ...dm.usernames.reduce(
-          (obj, un) => ({
+        ...dm.usernames.reduce((obj, un) => {
+          const socketIds = users.find((u) => u.username === un)?.socketIds;
+          return {
             ...obj,
             [un]: {
-              online: !!users.find((u) => u.username === un)?.socketId,
+              online: socketIds ? socketIds.length > 0 : false,
               notis: un !== agentProfile.username ? dm.userStatus[un].notis + 1 : dm.userStatus[un].notis,
               unRead: true,
               firstNotiMessage:
@@ -1332,11 +1333,9 @@ const sendMessage = async (agentProfile: IAgentProfile, contact: IContact, folde
                   ? dm.userStatus[un].firstNotiMessage || newMsg.insertedId
                   : dm.userStatus[un].firstNotiMessage,
               firstUnReadmessage: dm.userStatus[un].firstUnReadmessage || newMsg.insertedId,
-              socketId: users.find((u) => u.username === un)?.socketId,
             },
-          }),
-          {}
-        ),
+          };
+        }, {}),
       },
     };
 
@@ -1347,14 +1346,18 @@ const sendMessage = async (agentProfile: IAgentProfile, contact: IContact, folde
     await roomsCol.updateOne({ _id: dm._id }, { $set: roomData });
 
     users.forEach((u) => {
-      if (io && u.socketId) {
-        // update room
-        io.to(u.socketId).emit(ServerMessageType.channelUpdate, roomData);
+      u.socketIds?.forEach((socketId) => {
+        if (io) {
+          // update room
+          io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
 
-        // send message
-        io.to(u.socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
-      }
+          // send message
+          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
+        }
+      });
     });
+
+    // send notification
   }
 };
 
