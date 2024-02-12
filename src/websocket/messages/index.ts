@@ -166,6 +166,15 @@ export const messageHandler = (io: Server, socket: Socket) => {
               userId: u.username,
               url: `${process.env.WEB_URL}/app/agent-orgs/${agent._id}/rooms/${room._id}`,
             });
+
+            // send desktop notification
+            u.socketIds?.forEach((socketId) =>
+              io.to(socketId).emit(ServerMessageType.electronNotification, {
+                title: `New message from ${user.username}`,
+                body: msg,
+                url: `${process.env.WEB_URL}/app/agent-orgs/${agent._id}/rooms/${room._id}`,
+              })
+            );
             return;
           }
 
@@ -190,6 +199,15 @@ export const messageHandler = (io: Server, socket: Socket) => {
               userId: u.username,
               url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${room._id}`,
             });
+
+            // send desktop notification
+            u.socketIds?.forEach((socketId) =>
+              io.to(socketId).emit(ServerMessageType.electronNotification, {
+                title: `New message from ${user.username}`,
+                body: msg,
+                url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${room._id}`,
+              })
+            );
           }
         } catch (error) {
           console.log('emain send error ===>', error);

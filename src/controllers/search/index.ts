@@ -16,6 +16,7 @@ import { IMessage, ServerMessageType } from '@/types/message.types';
 import { io } from '@/socketServer';
 import { sendEmail } from '@/utils/email';
 import { sharePropertyTemplate } from '@/utils/email-templates';
+import { sendPush } from '@/utils/onesignal';
 
 dotenv.config();
 
@@ -1174,11 +1175,13 @@ export const shareProperty = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'No room found' });
     }
 
+    const msg = `Hi ${contact.name} Please check this listing located in ${property.City}, ${property.StateOrProvince}`;
+
     // create message
     const msgData: WithoutId<IMessage> = {
       orgId: agentProfile.orgId,
       roomId: dm._id,
-      msg: `Hi ${contact.name} Please check this listing located in ${property.City}, ${property.StateOrProvince}`,
+      msg,
       senderName: user.username,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -1232,6 +1235,15 @@ export const shareProperty = async (req: Request, res: Response) => {
 
           // send message
           io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
+
+          if (u.username === contact.username) {
+            // send desktop notification
+            io.to(socketId).emit(ServerMessageType.electronNotification, {
+              title: 'New property is shared',
+              body: msg,
+              url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+            });
+          }
         }
       });
     });
@@ -1240,7 +1252,7 @@ export const shareProperty = async (req: Request, res: Response) => {
     if (contact.username) {
       await sendEmail(
         contact.email,
-        'New listing shared',
+        'New property is shared',
         undefined,
         template(sharePropertyTemplate)({
           data: {
@@ -1250,6 +1262,14 @@ export const shareProperty = async (req: Request, res: Response) => {
           },
         })
       );
+
+      sendPush({
+        name: 'New property is shared',
+        headings: 'New property is shared',
+        contents: msg,
+        userId: contact.username,
+        url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+      });
     } else {
       let inviteCode = contact.inviteCode;
       if (!contact.inviteCode) {

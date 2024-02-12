@@ -425,6 +425,17 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
             userId: u.username,
             url: `${process.env.WEB_URL}/app/agent-orgs/${agent._id}/rooms/${room._id}`,
           });
+
+          // send desktop notification
+          u.socketIds?.forEach((socketId) => {
+            if (io) {
+              io.to(socketId).emit(ServerMessageType.electronNotification, {
+                title: `Channel Invitation (${agentProfile.org?.name} organization)`,
+                body: `You are invited into a new channel ${room.name} by ${user.username} Please join there`,
+                url: `${process.env.WEB_URL}/app/agent-orgs/${agent._id}/rooms/${room._id}`,
+              });
+            }
+          });
           return;
         }
 
@@ -451,6 +462,17 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
             contents: `You are invited into a new channel ${room.name} by ${user.username} Please join there`,
             userId: u.username,
             url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${room._id}`,
+          });
+
+          // send desktop notification
+          u.socketIds?.forEach((socketId) => {
+            if (io) {
+              io.to(socketId).emit(ServerMessageType.electronNotification, {
+                title: `Channel Invitation (${agentProfile.org?.name} organization)`,
+                body: `You are invited into a new channel ${room.name} by ${user.username} Please join there`,
+                url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${room._id}`,
+              });
+            }
           });
         }
       } catch (error) {

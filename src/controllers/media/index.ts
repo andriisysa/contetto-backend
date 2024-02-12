@@ -12,6 +12,7 @@ import { IAgentProfile } from '@/types/agentProfile.types';
 import { IRoom, RoomType } from '@/types/room.types';
 import { IMessage, ServerMessageType } from '@/types/message.types';
 import { io } from '@/socketServer';
+import { sendPush } from '@/utils/onesignal';
 
 const foldersCol = db.collection<WithoutId<IFolder>>('folders');
 const filesCol = db.collection<WithoutId<IFile>>('files');
@@ -1358,6 +1359,28 @@ const sendMessage = async (agentProfile: IAgentProfile, contact: IContact, folde
     });
 
     // send notification
+    users
+      .filter((u) => u.username === contact.username)
+      .forEach((u) => {
+        sendPush({
+          name: 'File is shared',
+          headings: 'File is shared',
+          contents: msg,
+          userId: u.username,
+          url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+        });
+
+        // send desktop notification
+        u.socketIds?.forEach((socketId) => {
+          if (io) {
+            io.to(socketId).emit(ServerMessageType.electronNotification, {
+              title: `File is shared`,
+              body: msg,
+              url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+            });
+          }
+        });
+      });
   }
 };
 
