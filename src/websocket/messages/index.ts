@@ -164,7 +164,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
               headings: 'New Message',
               contents: `You have a new message from ${user.username}`,
               userId: u.username,
-              url: `${process.env.WEB_URL}/app/agent-orgs/${agent._id}/rooms/${room._id}`,
+              url: `${process.env.SCHEME_APP}://app/agent-orgs/${agent._id}/rooms/${room._id}`,
             });
 
             // send desktop notification
@@ -197,7 +197,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
               headings: 'New Message',
               contents: `You have a new message from ${user.username}`,
               userId: u.username,
-              url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${room._id}`,
+              url: `${process.env.SCHEME_APP}://app/contact-orgs/${contact._id}/rooms/${room._id}`,
             });
 
             // send desktop notification
