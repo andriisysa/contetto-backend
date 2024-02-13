@@ -1367,7 +1367,7 @@ const sendMessage = async (agentProfile: IAgentProfile, contact: IContact, folde
           headings: 'File is shared',
           contents: msg,
           userId: u.username,
-          url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+          url: `${process.env.SCHEME_APP}://app/contact-orgs/${contact._id}/rooms/${dm._id}`,
         });
 
         // send desktop notification

@@ -1268,7 +1268,7 @@ export const shareProperty = async (req: Request, res: Response) => {
         headings: 'New property is shared',
         contents: msg,
         userId: contact.username,
-        url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+        url: `${process.env.SCHEME_APP}://app/contact-orgs/${contact._id}/rooms/${dm._id}`,
       });
     } else {
       let inviteCode = contact.inviteCode;

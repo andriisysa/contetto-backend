@@ -19,7 +19,7 @@ export let io: Server | undefined = undefined;
 export const clearConns = async () => {
   if (io) {
     const socketIds = [...io.sockets.sockets.keys()];
-    console.log(socketIds);
+
     await usersCol.updateMany(
       { socketIds: { $in: socketIds } },
       {
