@@ -419,7 +419,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
             subtitle: `Channel Invitation (${agentProfile.org?.name} organization)`,
             contents: `You are invited into a new channel ${room.name} by ${user.username} Please join there`,
             userId: u.username,
-            url: `${process.env.WEB_URL}/app/agent-orgs/${agent._id}/rooms/${room._id}`,
+            url: `${process.env.SCHEME_APP}://app/agent-orgs/${agent._id}/rooms/${room._id}`,
           });
           return;
         }
@@ -446,7 +446,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
             subtitle: `Channel Invitation (${agentProfile.org?.name} organization)`,
             contents: `You are invited into a new channel ${room.name} by ${user.username} Please join there`,
             userId: u.username,
-            url: `${process.env.WEB_URL}/app/contact-orgs/${contact._id}/rooms/${room._id}`,
+            url: `${process.env.SCHEME_APP}://app/contact-orgs/${contact._id}/rooms/${room._id}`,
           });
         }
       } catch (error) {
