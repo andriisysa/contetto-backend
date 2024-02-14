@@ -788,15 +788,15 @@ export const shareFolder = async (req: Request, res: Response) => {
         ...(folder.connections.find((con) => con.type === 'shared' && !con.id)
           ? []
           : [
-              {
-                id: undefined,
-                username: undefined,
-                type: 'shared',
-                permission: FilePermission.editor,
-                parentId: '',
-                parentPaths: [],
-              },
-            ]),
+            {
+              id: undefined,
+              username: undefined,
+              type: 'shared',
+              permission: FilePermission.editor,
+              parentId: '',
+              parentPaths: [],
+            },
+          ]),
       ] as IFolderConnect[];
 
       // share folder
@@ -811,17 +811,17 @@ export const shareFolder = async (req: Request, res: Response) => {
             ...(existing
               ? []
               : [
-                  {
-                    ...currentConnection!,
-                    id: undefined,
-                    username: undefined,
-                    type: 'shared',
-                    permission: FilePermission.editor,
-                    parentPaths: currentConnection!.parentPaths.slice(
-                      currentConnection?.parentPaths.findIndex((path) => path.equals(folder._id))
-                    ),
-                  },
-                ]),
+                {
+                  ...currentConnection!,
+                  id: undefined,
+                  username: undefined,
+                  type: 'shared',
+                  permission: FilePermission.editor,
+                  parentPaths: currentConnection!.parentPaths.slice(
+                    currentConnection?.parentPaths.findIndex((path) => path.equals(folder._id))
+                  ),
+                },
+              ]),
           ] as IFolderConnect[];
 
           return {
@@ -850,14 +850,14 @@ export const shareFolder = async (req: Request, res: Response) => {
             ...(existing
               ? []
               : [
-                  {
-                    ...currentConnection!,
-                    id: undefined,
-                    username: undefined,
-                    type: 'shared',
-                    permission: FilePermission.editor,
-                  },
-                ]),
+                {
+                  ...currentConnection!,
+                  id: undefined,
+                  username: undefined,
+                  type: 'shared',
+                  permission: FilePermission.editor,
+                },
+              ]),
           ] as IFileConnect[];
 
           return {
@@ -1367,7 +1367,7 @@ const sendMessage = async (agentProfile: IAgentProfile, contact: IContact, folde
           headings: 'File is shared',
           contents: msg,
           userId: u.username,
-          url: `${process.env.SCHEME_APP}://app/contact-orgs/${contact._id}/rooms/${dm._id}`,
+          url: `${process.env.SCHEME_APP}:///?navigateTo=app/contact-orgs/${contact._id}/rooms/${dm._id}`,
         });
 
         // send desktop notification
@@ -1407,14 +1407,14 @@ export const shareFile = async (req: Request, res: Response) => {
         ...(file.connections.find((con) => con.type === 'shared' && !con.id)
           ? []
           : [
-              {
-                id: undefined,
-                username: undefined,
-                type: 'shared',
-                permission: FilePermission.editor,
-                parentId: '',
-              },
-            ]),
+            {
+              id: undefined,
+              username: undefined,
+              type: 'shared',
+              permission: FilePermission.editor,
+              parentId: '',
+            },
+          ]),
       ] as IFileConnect[];
 
       // share files
