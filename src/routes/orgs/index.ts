@@ -50,7 +50,13 @@ import {
 } from '@/controllers/search';
 import { agentOrContact, searchResultAuth } from '@/middlewares/searchAuth';
 import { addMemberToChannel, createChannel, createDm, updateChannel } from '@/controllers/rooms';
-import { loadMessages, loadMoreMessages } from '@/controllers/messages';
+import {
+  addAttachment,
+  deleteAttachment,
+  loadMessages,
+  loadMoreMessages,
+  searchMessages,
+} from '@/controllers/messages';
 import {
   createFolder,
   deleteFiles,
@@ -155,6 +161,9 @@ orgsRouter
   // messages
   .get('/:id/rooms/:roomId/messages', loadMessages)
   .get('/:id/rooms/:roomId/messages/more', loadMoreMessages)
+  .get('/:id/rooms/:roomId/messages/search', searchMessages)
+  .post('/:id/rooms/:roomId/attachments', addAttachment)
+  .delete('/:id/rooms/:roomId/attachments/:attachmentId', deleteAttachment)
 
   // folders and files
   .post('/:id/folders', validate(mediaScheme.create), agentOrContact, folderAuth, createFolder)

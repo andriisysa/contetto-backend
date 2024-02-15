@@ -1185,7 +1185,7 @@ export const shareProperty = async (req: Request, res: Response) => {
       senderName: user.username,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      attatchMents: [],
+      attachmentIds: [],
       edited: false,
       editable: false,
       sharelink: `search-results/${searchResult._id}/properties/${property._id}`,
@@ -1234,7 +1234,7 @@ export const shareProperty = async (req: Request, res: Response) => {
           io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
 
           // send message
-          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
+          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId, attachments: [] });
 
           if (u.username === contact.username) {
             // send desktop notification

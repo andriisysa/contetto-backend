@@ -788,15 +788,15 @@ export const shareFolder = async (req: Request, res: Response) => {
         ...(folder.connections.find((con) => con.type === 'shared' && !con.id)
           ? []
           : [
-            {
-              id: undefined,
-              username: undefined,
-              type: 'shared',
-              permission: FilePermission.editor,
-              parentId: '',
-              parentPaths: [],
-            },
-          ]),
+              {
+                id: undefined,
+                username: undefined,
+                type: 'shared',
+                permission: FilePermission.editor,
+                parentId: '',
+                parentPaths: [],
+              },
+            ]),
       ] as IFolderConnect[];
 
       // share folder
@@ -811,17 +811,17 @@ export const shareFolder = async (req: Request, res: Response) => {
             ...(existing
               ? []
               : [
-                {
-                  ...currentConnection!,
-                  id: undefined,
-                  username: undefined,
-                  type: 'shared',
-                  permission: FilePermission.editor,
-                  parentPaths: currentConnection!.parentPaths.slice(
-                    currentConnection?.parentPaths.findIndex((path) => path.equals(folder._id))
-                  ),
-                },
-              ]),
+                  {
+                    ...currentConnection!,
+                    id: undefined,
+                    username: undefined,
+                    type: 'shared',
+                    permission: FilePermission.editor,
+                    parentPaths: currentConnection!.parentPaths.slice(
+                      currentConnection?.parentPaths.findIndex((path) => path.equals(folder._id))
+                    ),
+                  },
+                ]),
           ] as IFolderConnect[];
 
           return {
@@ -850,14 +850,14 @@ export const shareFolder = async (req: Request, res: Response) => {
             ...(existing
               ? []
               : [
-                {
-                  ...currentConnection!,
-                  id: undefined,
-                  username: undefined,
-                  type: 'shared',
-                  permission: FilePermission.editor,
-                },
-              ]),
+                  {
+                    ...currentConnection!,
+                    id: undefined,
+                    username: undefined,
+                    type: 'shared',
+                    permission: FilePermission.editor,
+                  },
+                ]),
           ] as IFileConnect[];
 
           return {
@@ -1303,7 +1303,7 @@ const sendMessage = async (agentProfile: IAgentProfile, contact: IContact, folde
       senderName: agentProfile.username,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      attatchMents: [],
+      attachmentIds: [],
       edited: false,
       editable: false,
       agentLink: `contacts/${contact._id}/folders/forcontact${folderId ? `/${folderId}` : ''}`,
@@ -1353,7 +1353,7 @@ const sendMessage = async (agentProfile: IAgentProfile, contact: IContact, folde
           io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
 
           // send message
-          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
+          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId, attachments: [] });
         }
       });
     });
@@ -1407,14 +1407,14 @@ export const shareFile = async (req: Request, res: Response) => {
         ...(file.connections.find((con) => con.type === 'shared' && !con.id)
           ? []
           : [
-            {
-              id: undefined,
-              username: undefined,
-              type: 'shared',
-              permission: FilePermission.editor,
-              parentId: '',
-            },
-          ]),
+              {
+                id: undefined,
+                username: undefined,
+                type: 'shared',
+                permission: FilePermission.editor,
+                parentId: '',
+              },
+            ]),
       ] as IFileConnect[];
 
       // share files

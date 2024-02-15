@@ -215,7 +215,7 @@ export const uploadTemplateImage = async (req: Request, res: Response) => {
       username: user.username,
       url,
       s3Key,
-      mimeType: imageType,
+      mimetype: imageType,
       ext: imageExtension,
       orgId: undefined,
     };

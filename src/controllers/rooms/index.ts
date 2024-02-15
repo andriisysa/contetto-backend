@@ -309,8 +309,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
       senderName: user.username,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      // userStatus: [...existingUsers, ...newUsers].reduce((obj, u) => ({ ...obj, [u.username]: { read: false } }), {}),
-      attatchMents: [],
+      attachmentIds: [],
       edited: false,
       editable: false,
       mentions: [],
@@ -393,7 +392,7 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
     [...newUsers, ...existingUsers].forEach((u) => {
       u.socketIds?.forEach((socketId) => {
         if (io) {
-          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMessage.insertedId });
+          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMessage.insertedId, attachments: [] });
         }
       });
     });

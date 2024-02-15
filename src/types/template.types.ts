@@ -35,7 +35,7 @@ export interface ITemplateImage {
   username: string;
   url: string;
   s3Key: string;
-  mimeType: string;
+  mimetype: string;
   ext: string;
   orgId?: ObjectId;
 }

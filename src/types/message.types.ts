@@ -9,10 +9,16 @@ export interface IMessageUserStatus {
   };
 }
 
-export interface IMsgAttachMent {
+export interface IMsgAttachment {
+  _id: ObjectId;
+  roomId: ObjectId;
+  name: string;
   url: string;
-  type: 'image' | 'video' | 'pdf';
-  createdAt: number;
+  s3Key: string;
+  mimetype: string;
+  size: number;
+  timestamp: number;
+  creator: string;
 }
 
 export interface IMessage {
@@ -24,8 +30,8 @@ export interface IMessage {
   sender?: IUser;
   createdAt: number; // milliseconds timestamp
   updatedAt?: number; // milliseconds timestamp
-  // userStatus: IMessageUserStatus;
-  attatchMents: IMsgAttachMent[];
+  attachmentIds: ObjectId[];
+  attachments?: IMsgAttachment[];
   edited: boolean;
   mentions: string[]; // usernames
   channels: string[]; // channel names
@@ -40,8 +46,10 @@ export interface IMessagePayload {
   user: IUser;
   msg?: string;
   messageId?: string;
-  mentions: string[]; // usernames
-  channels: string[]; // channel names
+  mentions?: string[]; // usernames
+  channels?: string[]; // channel names
+  attachmentIds?: string[];
+  deletAttachmentId?: string;
   typing?: boolean;
 }
 
@@ -66,7 +74,7 @@ export enum ServerMessageType {
   msgDelete = 'msg:delete',
 
   // notification for electron app
-  electronNotification = "electron:notification",
+  electronNotification = 'electron:notification',
 
   // error
   invalidRequest = 'error:invalid',
@@ -81,4 +89,5 @@ export enum ClientMessageType {
   msgRead = 'msg:read',
   msgTyping = 'msg:typing',
   msgDelete = 'msg:delete',
+  attachmentDelete = 'attachment:delete',
 }

@@ -164,7 +164,7 @@ export const uploadBrochureImage = async (req: Request, res: Response) => {
       username: agent.username,
       url,
       s3Key,
-      mimeType: imageType,
+      mimetype: imageType,
       ext: imageExtension,
       orgId: agent.orgId,
     };

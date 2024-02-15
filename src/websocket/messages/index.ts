@@ -1,16 +1,18 @@
 import { db } from '@/database';
-import { ClientMessageType, IMessage, IMessagePayload, ServerMessageType } from '@/types/message.types';
+import { ClientMessageType, IMessage, IMessagePayload, IMsgAttachment, ServerMessageType } from '@/types/message.types';
 import { IRoom, IRoomUserStatus, RoomType } from '@/types/room.types';
 import { IUser } from '@/types/user.types';
 import { sendEmail } from '@/utils/email';
 import { generateTokens, verifyToken } from '@/utils/jwt';
 import { sendPush } from '@/utils/onesignal';
+import { deleteS3Objects } from '@/utils/s3';
 import { ObjectId, WithoutId } from 'mongodb';
 import { Server } from 'socket.io';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
 const messagesCol = db.collection<WithoutId<IMessage>>('messages');
+const msgAttachmentsCol = db.collection<WithoutId<IMsgAttachment>>('msgAttachments');
 
 export const messageHandler = (io: Server, socket: Socket) => {
   const messageAuth = (next: Function) => async (payload: any) => {
@@ -67,9 +69,16 @@ export const messageHandler = (io: Server, socket: Socket) => {
 
   const sendMessage = messageAuth(async (payload: IMessagePayload) => {
     try {
-      const { room, user, msg, mentions = [], channels = [] } = payload;
+      const { room, user, msg, mentions = [], channels = [], attachmentIds = [] } = payload;
 
-      if (!msg) {
+      if (!msg && attachmentIds.length === 0) {
+        return socket.emit(ServerMessageType.invalidRequest, { msg: 'Invalid request' });
+      }
+
+      const attachments = await msgAttachmentsCol
+        .find({ _id: { $in: attachmentIds.map((id) => new ObjectId(id)) } })
+        .toArray();
+      if (attachmentIds.length !== attachments.length) {
         return socket.emit(ServerMessageType.invalidRequest, { msg: 'Invalid request' });
       }
 
@@ -84,8 +93,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
         senderName: user.username,
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        // userStatus: users.reduce((obj, u) => ({ ...obj, [u.username]: { read: false } }), {}),
-        attatchMents: [],
+        attachmentIds: attachments.map((att) => att._id),
         edited: false,
         mentions: mentions,
         channels: channels,
@@ -137,7 +145,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
           io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
 
           // send message
-          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId });
+          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMsg.insertedId, attachments });
         });
       });
 
@@ -254,6 +262,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
 
       // get all users
       const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
+      const attachments = await msgAttachmentsCol.find({ _id: { $in: message.attachmentIds } }).toArray();
 
       // send message to clients
       users.forEach((u) => {
@@ -261,6 +270,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
           io.to(socketId).emit(ServerMessageType.msgUpdate, {
             ...message,
             ...msgUpdateData,
+            attachments,
           });
         });
       });
@@ -325,12 +335,84 @@ export const messageHandler = (io: Server, socket: Socket) => {
 
       await messagesCol.deleteOne({ _id: message._id });
 
+      // delete attachments
+      const attachments = await msgAttachmentsCol.find({ _id: { $in: message.attachmentIds } }).toArray();
+      await deleteS3Objects(attachments.map((att) => att.s3Key));
+      await msgAttachmentsCol.deleteMany({ _id: { $in: message.attachmentIds } });
+
       // get all users
       const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
 
       users.forEach((u) => {
         u.socketIds?.forEach((socketId) => io.to(socketId).emit(ServerMessageType.msgDelete, message));
       });
+    } catch (error) {
+      console.log('sendMessage error ===>', error);
+      return socket.emit(ServerMessageType.unknownError, error);
+    }
+  });
+
+  const deleteAttachment = messageAuth(async (payload: IMessagePayload) => {
+    try {
+      const { room, user, messageId, deletAttachmentId } = payload;
+
+      if (!messageId) {
+        return socket.emit(ServerMessageType.invalidRequest, { msg: 'Invalid request' });
+      }
+
+      // get message
+      const message = await messagesCol.findOne({
+        _id: new ObjectId(messageId),
+        roomId: room._id,
+        senderName: user.username,
+        attachmentIds: new ObjectId(deletAttachmentId),
+      });
+      if (!message) {
+        return socket.emit(ServerMessageType.notFoundError, { msg: 'Message not found' });
+      }
+
+      // get attachment
+      const attachment = await msgAttachmentsCol.findOne({
+        _id: new ObjectId(deletAttachmentId),
+        roomId: message.roomId,
+      });
+      if (!attachment) {
+        return socket.emit(ServerMessageType.notFoundError, { msg: 'File not found' });
+      }
+
+      // delete attachment
+      await msgAttachmentsCol.deleteOne({ _id: attachment._id });
+      await deleteS3Objects([attachment.s3Key]);
+
+      // get all users
+      const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
+
+      // update or delete msg
+      if (!message.msg && message.attachmentIds.length === 1) {
+        // delete message
+        await messagesCol.deleteOne({ _id: message._id });
+
+        users.forEach((u) => {
+          u.socketIds?.forEach((socketId) => io.to(socketId).emit(ServerMessageType.msgDelete, message));
+        });
+      } else {
+        // update message
+        const attachmentIds = message.attachmentIds.filter((id) => !id.equals(attachment._id));
+        const attachments = await msgAttachmentsCol.find({ _id: { $in: attachmentIds } }).toArray();
+
+        await messagesCol.updateOne({ _id: message._id }, { $set: { attachmentIds } });
+
+        // send message to clients
+        users.forEach((u) => {
+          u.socketIds?.forEach((socketId) => {
+            io.to(socketId).emit(ServerMessageType.msgUpdate, {
+              ...message,
+              attachmentIds,
+              attachments,
+            });
+          });
+        });
+      }
     } catch (error) {
       console.log('sendMessage error ===>', error);
       return socket.emit(ServerMessageType.unknownError, error);
@@ -389,4 +471,5 @@ export const messageHandler = (io: Server, socket: Socket) => {
   socket.on(ClientMessageType.msgDelete, deleteMessage);
   socket.on(ClientMessageType.msgRead, readMessage);
   socket.on(ClientMessageType.msgTyping, typing);
+  socket.on(ClientMessageType.attachmentDelete, deleteAttachment);
 };
