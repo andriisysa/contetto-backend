@@ -375,6 +375,7 @@ export const messageHandler = (io: Server, socket: Socket) => {
       const attachment = await msgAttachmentsCol.findOne({
         _id: new ObjectId(deletAttachmentId),
         roomId: message.roomId,
+        creator: user.username,
       });
       if (!attachment) {
         return socket.emit(ServerMessageType.notFoundError, { msg: 'File not found' });

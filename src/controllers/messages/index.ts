@@ -207,7 +207,11 @@ export const deleteAttachment = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'Room not found' });
     }
 
-    const msgAttachment = await msgAttachmentsCol.findOne({ _id: new ObjectId(attachmentId), roomId: room._id });
+    const msgAttachment = await msgAttachmentsCol.findOne({
+      _id: new ObjectId(attachmentId),
+      roomId: room._id,
+      creator: user.username,
+    });
     if (!msgAttachment) {
       return res.status(404).json({ msg: 'Not found file' });
     }
