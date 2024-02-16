@@ -49,7 +49,14 @@ import {
   searchPropertiesByAddress,
 } from '@/controllers/search';
 import { agentOrContact, searchResultAuth } from '@/middlewares/searchAuth';
-import { addMemberToChannel, createChannel, createDm, updateChannel } from '@/controllers/rooms';
+import {
+  addMemberToChannel,
+  archiveRoom,
+  createChannel,
+  createDm,
+  removeMemberFromRoom,
+  updateChannel,
+} from '@/controllers/rooms';
 import {
   addAttachment,
   deleteAttachment,
@@ -157,6 +164,8 @@ orgsRouter
   .post('/:id/dms', orgRoleAuth(AgentRole.agent), createDm)
   .put('/:id/channels/:roomId', validate(channelScheme.create), orgRoleAuth(AgentRole.agent), updateChannel)
   .post('/:id/channels/:roomId/add-members', orgRoleAuth(AgentRole.agent), addMemberToChannel)
+  .post('/:id/channels/:roomId/remove-member', orgRoleAuth(AgentRole.admin), removeMemberFromRoom)
+  .delete('/:id/channels/:roomId', orgRoleAuth(AgentRole.owner), archiveRoom)
 
   // messages
   .get('/:id/rooms/:roomId/messages', loadMessages)

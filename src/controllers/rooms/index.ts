@@ -24,8 +24,8 @@ export const createChannel = async (req: Request, res: Response) => {
     const user = (await usersCol.findOne({ username: req.user?.username })) as IUser;
     const agentProfile = req.agentProfile as IAgentProfile;
 
-    const { name } = req.body;
-    const room = await roomsCol.findOne({ orgId: agentProfile.orgId, name });
+    const { name, isPublic = false } = req.body;
+    const room = await roomsCol.findOne({ orgId: agentProfile.orgId, name, deleted: false });
     if (room) {
       return res.status(401).json({ msg: 'Channel already exists' });
     }
@@ -50,11 +50,46 @@ export const createChannel = async (req: Request, res: Response) => {
       createdAt: getNow(),
       updatedAt: getNow(),
       deleted: false,
+      isPublic,
     };
 
-    const newRoom = await roomsCol.insertOne(data);
+    if (isPublic) {
+      const agents = await agentProfilesCol.find({ orgId: agentProfile.orgId }).toArray();
+      const users = await usersCol.find({ username: { $in: agents.map((a) => a.username) } }).toArray();
 
-    return res.json({ ...data, _id: newRoom.insertedId });
+      data.usernames = agents.map((a) => a.username);
+      data.agents = agents.map((a) => ({ _id: a._id, username: a.username }));
+      data.userStatus = users.reduce(
+        (obj, u) => ({
+          ...obj,
+          [u.username]: {
+            online: u.socketIds ? u.socketIds.length > 0 : false,
+            notis: 0,
+            unRead: false,
+            firstNotiMessage: undefined,
+            firstUnReadmessage: undefined,
+          },
+        }),
+        {}
+      );
+      const newRoom = await roomsCol.insertOne(data);
+
+      users
+        .filter((u) => u.username !== user.username)
+        .map((u) => {
+          u.socketIds?.map((socketId) => {
+            if (io) {
+              io.to(socketId).emit(ServerMessageType.channelJoin, { ...data, _id: newRoom.insertedId });
+            }
+          });
+        });
+
+      return res.json({ ...data, _id: newRoom.insertedId });
+    } else {
+      const newRoom = await roomsCol.insertOne(data);
+
+      return res.json({ ...data, _id: newRoom.insertedId });
+    }
   } catch (error) {
     console.log('createChannel error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -180,6 +215,7 @@ export const createDm = async (req: Request, res: Response) => {
       },
       createdAt: getNow(),
       updatedAt: getNow(),
+      isPublic: false,
       deleted: false,
     };
     const newDM = await roomsCol.insertOne(data);
@@ -203,6 +239,8 @@ export const updateChannel = async (req: Request, res: Response) => {
       _id: new ObjectId(roomId),
       orgId: agentProfile.orgId,
       usernames: user.username,
+      deleted: false,
+      type: RoomType.channel,
     });
     if (!room) {
       return res.status(404).json({ msg: 'Room not found' });
@@ -264,10 +302,14 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
       orgId: agentProfile.orgId,
       'agents.username': user.username,
       type: RoomType.channel,
+      deleted: false,
     });
 
     if (!room) {
       return res.status(404).json({ msg: 'Room not found' });
+    }
+    if (room.isPublic) {
+      return res.json({});
     }
 
     const agentProfiles = await agentProfilesCol
@@ -495,8 +537,141 @@ export const inviteToChannel = async (req: Request, res: Response) => {
   }
 };
 
+export const removeMemberFromRoom = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+    const agentProfile = req.agentProfile as IAgentProfile;
+
+    const { roomId } = req.params;
+    const { agent, contact } = req.body;
+
+    const room = await roomsCol.findOne({
+      _id: new ObjectId(roomId),
+      orgId: agentProfile.orgId,
+      'agents.username': user.username,
+      type: RoomType.channel,
+      deleted: false,
+    });
+
+    if (!room) {
+      return res.status(404).json({ msg: 'Room not found' });
+    }
+    if (room.isPublic) {
+      return res.status(400).json({ msg: 'Bad Request. This is public room' });
+    }
+
+    const ap = await agentProfilesCol.findOne({
+      orgId: agentProfile.orgId,
+      username: (agent as IRoomAgent).username,
+    });
+    const cp = await contactsCol.findOne({ _id: (contact as IRoomContact)._id, orgId: agentProfile.orgId });
+    if (!ap && !cp) {
+      return res.status(400).json({ msg: 'Invalid request!' });
+    }
+
+    const msg = `${(ap || cp)?.username} is removed by ${user.username}`;
+
+    const msgData: WithoutId<IMessage> = {
+      roomId: room._id,
+      orgId: agentProfile.orgId,
+      msg,
+      senderName: user.username,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      attachmentIds: [],
+      edited: false,
+      editable: false,
+      mentions: [],
+      channels: [],
+    };
+
+    const newMessage = await messagesCol.insertOne(msgData);
+
+    const usernames = room.usernames.filter(
+      (un) => un !== ap?.username && un !== cp?.username && un !== cp?._id.toString()
+    );
+    const roomData: IRoom = {
+      ...room,
+      usernames,
+      agents: room.agents.filter((agent) => agent.username !== ap?.username),
+      contacts: room.contacts.filter((contact) => !cp || !contact._id.equals(cp._id)),
+    };
+
+    await roomsCol.updateOne({ _id: room._id }, { $set: roomData });
+
+    const users = await usersCol.find({ username: { $in: usernames } }).toArray();
+
+    users.forEach((u) => {
+      u.socketIds?.forEach((socketId) => {
+        if (io) {
+          io.to(socketId).emit(ServerMessageType.msgSend, { ...msgData, _id: newMessage.insertedId, attachments: [] });
+
+          io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
+        }
+      });
+    });
+
+    const removedUser = await usersCol.findOne({ username: (ap || cp)?.username });
+    if (removedUser) {
+      await sendEmail(
+        removedUser.emails[0].email,
+        'You are removed from private chatting room',
+        undefined,
+        `
+        <p> You are removed from <b>"${room.name}"</b> room by ${agentProfile.username} in ${agentProfile.org?.name} organization</p>
+        `
+      );
+
+      removedUser.socketIds?.forEach((socketId) => {
+        if (io) {
+          io.to(socketId).emit(ServerMessageType.channelArchive, room);
+
+          io.to(socketId).emit(ServerMessageType.electronNotification, {
+            title: 'You are removed from private chatting room',
+            body: `You are removed from "${room.name}" room by ${agentProfile.username} in ${agentProfile.org?.name} organization`,
+          });
+        }
+      });
+    }
+
+    return res.json({ msg: 'success' });
+  } catch (error) {
+    console.log('addMemberToChannel error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
 export const archiveRoom = async (req: Request, res: Response) => {
   try {
+    const user = req.user as IUser;
+    const agentProfile = req.agentProfile as IAgentProfile;
+
+    const { roomId } = req.params;
+
+    const room = await roomsCol.findOne({
+      _id: new ObjectId(roomId),
+      orgId: agentProfile.orgId,
+      'agents.username': user.username,
+      type: RoomType.channel,
+      deleted: false,
+    });
+    if (!room) {
+      return res.status(404).json({ msg: 'Room not found' });
+    }
+
+    await roomsCol.updateOne({ _id: room._id }, { $set: { deleted: true } });
+
+    const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
+
+    users.forEach((u) => {
+      u.socketIds?.forEach((socketId) => {
+        if (io) {
+          io.to(socketId).emit(ServerMessageType.channelArchive, room);
+        }
+      });
+    });
+
+    return res.json({ msg: 'success' });
   } catch (error) {
     console.log('archiveRoom error ===>', error);
     return res.status(500).json({ msg: 'Server error' });

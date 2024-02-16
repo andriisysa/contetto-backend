@@ -41,6 +41,7 @@ export interface IRoom {
   contacts: IRoomContact[];
   contactProfiles?: IContact[];
   creator: string; // creator username
+  isPublic: boolean;
   type: RoomType;
   userStatus: IRoomUserStatus;
   dmInitiated?: boolean;

@@ -13,12 +13,17 @@ import { IContact } from '@/types/contact.types';
 import { getImageExtension } from '@/utils/extension';
 import { uploadBase64ToS3 } from '@/utils/s3';
 import { IIndustry } from '@/types/industry.types';
+import { IRoom, RoomType } from '@/types/room.types';
+import { io } from '@/socketServer';
+import { ServerMessageType } from '@/types/message.types';
 
 const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
 const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles');
 const invitesCol = db.collection<WithoutId<IInvite>>('invites');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
+const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
+const usersCol = db.collection<WithoutId<IUser>>('users');
 
 export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
   const newOrg = await orgsCol.insertOne(orgData);
@@ -260,6 +265,43 @@ export const acceptInvite = async (req: Request, res: Response) => {
       }
     );
 
+    // assign agent into public rooms
+    const rooms = await roomsCol.find({ orgId: org._id, isPublic: true, type: RoomType.channel }).toArray();
+    for (const room of rooms) {
+      const usernames = [...room.usernames, user.username];
+      const users = await usersCol.find({ username: { $in: usernames } }).toArray();
+
+      const roomData: IRoom = {
+        ...room,
+        usernames,
+        agents: [...room.agents, { _id: newAgent.insertedId, username: user.username }],
+        userStatus: {
+          ...room.userStatus,
+          [user.username]: {
+            online: true,
+            notis: 0,
+            unRead: false,
+            firstNotiMessage: undefined,
+            firstUnReadmessage: undefined,
+          },
+        },
+      };
+
+      await roomsCol.updateOne({ _id: room._id }, { $set: roomData });
+
+      users.forEach((u) => {
+        u.socketIds?.forEach((socketId) => {
+          if (io) {
+            if (u.username === user.username) {
+              io.to(socketId).emit(ServerMessageType.channelJoin, roomData);
+            } else {
+              io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
+            }
+          }
+        });
+      });
+    }
+
     return res.json({ ...data, _id: newAgent.insertedId });
   } catch (error) {
     console.log('org accept invite ===>', error);
@@ -360,23 +402,69 @@ export const getOrgMembers = async (req: Request, res: Response) => {
 export const removeMember = async (req: Request, res: Response) => {
   try {
     const agentProfile = req.agentProfile as IAgentProfile;
-    const { username: tagetUsername } = req.body;
+    const { username: targetUsername } = req.body;
 
-    const tagetUserProfile = await agentProfilesCol.findOne({
+    const targetUserProfile = await agentProfilesCol.findOne({
       orgId: agentProfile.orgId,
-      username: tagetUsername,
+      username: targetUsername,
       deleted: false,
     });
-    if (!tagetUserProfile) {
+    if (!targetUserProfile) {
       return res.status(404).json({ msg: 'No user to remove' });
     }
 
-    if (roleOrder[agentProfile.role] >= roleOrder[tagetUserProfile.role]) {
+    if (roleOrder[agentProfile.role] >= roleOrder[targetUserProfile.role]) {
       return res.status(400).json({ msg: `You don't have permission to remove this user` });
     }
 
-    await agentProfilesCol.updateOne({ _id: tagetUserProfile._id }, { $set: { deleted: true, deletedAt: getNow() } });
-    await contactsCol.deleteMany({ orgId: tagetUserProfile.orgId, agentProfileId: tagetUserProfile._id });
+    await agentProfilesCol.updateOne({ _id: targetUserProfile._id }, { $set: { deleted: true, deletedAt: getNow() } });
+    await contactsCol.deleteMany({ orgId: targetUserProfile.orgId, agentProfileId: targetUserProfile._id });
+
+    // remove user in all rooms
+    const rooms = await roomsCol
+      .find({ orgId: agentProfile.orgId, type: RoomType.channel, usernames: targetUsername })
+      .toArray();
+    for (const room of rooms) {
+      const usernames = room.usernames.filter((un) => un !== targetUsername);
+      const users = await usersCol.find({ username: { $in: usernames } }).toArray();
+
+      const roomData: IRoom = {
+        ...room,
+        usernames,
+        agents: room.agents.filter((ag) => ag.username !== targetUsername),
+      };
+
+      await roomsCol.updateOne({ _id: room._id }, { $set: roomData });
+
+      users.forEach((u) => {
+        u.socketIds?.forEach((socketId) => {
+          if (io) {
+            io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
+          }
+        });
+      });
+    }
+
+    const targetUser = await usersCol.findOne({ username: targetUsername });
+    if (targetUser) {
+      await sendEmail(
+        targetUser.emails[0].email,
+        `You are removed from ${agentProfile.org?.name}`,
+        undefined,
+        `
+        <p>${agentProfile.username} removed you from ${agentProfile.org?.name} organization</p>
+        `
+      );
+
+      targetUser.socketIds?.forEach((socketId) => {
+        if (io) {
+          io.to(socketId).emit(ServerMessageType.electronNotification, {
+            title: 'You are removed',
+            body: `${agentProfile.username} removed you from ${agentProfile.org?.name} organization`,
+          });
+        }
+      });
+    }
 
     return res.json({ msg: 'removed!' });
   } catch (error) {
