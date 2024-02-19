@@ -60,8 +60,10 @@ import {
 import {
   addAttachment,
   deleteAttachment,
+  loadBeforeMessages,
   loadMessages,
-  loadMoreMessages,
+  loadNextMessages,
+  loadSearchedessages,
   searchMessages,
 } from '@/controllers/messages';
 import {
@@ -169,8 +171,10 @@ orgsRouter
 
   // messages
   .get('/:id/rooms/:roomId/messages', loadMessages)
-  .get('/:id/rooms/:roomId/messages/more', loadMoreMessages)
+  .get('/:id/rooms/:roomId/messages/load-before', loadBeforeMessages)
+  .get('/:id/rooms/:roomId/messages/load-next', loadNextMessages)
   .get('/:id/rooms/:roomId/messages/search', searchMessages)
+  .get('/:id/rooms/:roomId/messages/load-searched', loadSearchedessages)
   .post('/:id/rooms/:roomId/attachments', addAttachment)
   .delete('/:id/rooms/:roomId/attachments/:attachmentId', deleteAttachment)
 

@@ -50,7 +50,7 @@ export const loadMessages = async (req: Request, res: Response) => {
   }
 };
 
-export const loadMoreMessages = async (req: Request, res: Response) => {
+export const loadBeforeMessages = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
     const { id: orgId, roomId } = req.params;
@@ -90,7 +90,52 @@ export const loadMoreMessages = async (req: Request, res: Response) => {
 
     return res.json(messages.sort((a, b) => a.createdAt - b.createdAt));
   } catch (error) {
-    console.log('load more messages error ===>', error);
+    console.log('loadBeforeMessages error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const loadNextMessages = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+    const { id: orgId, roomId } = req.params;
+    const { messageId } = req.query;
+
+    const room = await roomsCol.findOne({
+      _id: new ObjectId(roomId),
+      orgId: new ObjectId(orgId),
+      usernames: user.username,
+    });
+    if (!room) {
+      return res.status(404).json({ msg: 'Room not found' });
+    }
+    const message = await messagesCol.findOne({
+      _id: new ObjectId(String(messageId)),
+      roomId: room._id,
+    });
+    if (!message) {
+      return res.status(404).json({ msg: 'Message not found' });
+    }
+
+    const messages = await messagesCol
+      .aggregate([
+        { $match: { roomId: room._id, orgId: room.orgId, createdAt: { $gt: message.createdAt } } },
+        {
+          $lookup: {
+            from: 'msgAttachments',
+            localField: 'attachmentIds',
+            foreignField: '_id',
+            as: 'attachments',
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        { $limit: 20 },
+      ])
+      .toArray();
+
+    return res.json(messages.sort((a, b) => a.createdAt - b.createdAt));
+  } catch (error) {
+    console.log('loadNextMessages error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
@@ -146,6 +191,67 @@ export const searchMessages = async (req: Request, res: Response) => {
     return res.json(messages.sort((a, b) => a.createdAt - b.createdAt));
   } catch (error) {
     console.log('load more messages error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const loadSearchedessages = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+    const { id: orgId, roomId } = req.params;
+    const { messageId } = req.query;
+
+    const room = await roomsCol.findOne({
+      _id: new ObjectId(roomId),
+      orgId: new ObjectId(orgId),
+      usernames: user.username,
+    });
+    if (!room) {
+      return res.status(404).json({ msg: 'Room not found' });
+    }
+    const message = await messagesCol.findOne({
+      _id: new ObjectId(String(messageId)),
+      roomId: room._id,
+    });
+    if (!message) {
+      return res.status(404).json({ msg: 'Message not found' });
+    }
+
+    const beforeMessages = await messagesCol
+      .aggregate([
+        { $match: { roomId: room._id, orgId: room.orgId, createdAt: { $lt: message.createdAt } } },
+        {
+          $lookup: {
+            from: 'msgAttachments',
+            localField: 'attachmentIds',
+            foreignField: '_id',
+            as: 'attachments',
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        { $limit: 3 },
+      ])
+      .toArray();
+
+    const messages = await messagesCol
+      .aggregate([
+        { $match: { roomId: room._id, orgId: room.orgId, createdAt: { $gte: message.createdAt } } },
+        {
+          $lookup: {
+            from: 'msgAttachments',
+            localField: 'attachmentIds',
+            foreignField: '_id',
+            as: 'attachments',
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        { $limit: 20 },
+      ])
+      .toArray();
+
+    return res.json([...beforeMessages, ...messages].sort((a, b) => a.createdAt - b.createdAt));
+  } catch (error) {
+    console.log('loadSearchedessages error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
