@@ -105,6 +105,7 @@ export const createContact = async (req: Request, res: Response) => {
           firstUnReadmessage: undefined,
         },
       },
+      isPublic: false,
       createdAt: getNow(),
       updatedAt: getNow(),
       deleted: false,
