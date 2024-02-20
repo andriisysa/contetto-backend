@@ -5,7 +5,7 @@ import path from 'path';
 import { db } from '@/database';
 import { FilePermission, IFile, IFileConnect, IFileShare, IFolder, IFolderConnect } from '@/types/folder.types';
 import { IUser } from '@/types/user.types';
-import { deleteS3Objects, getDownloadSignedUrl, getS3Object, getUploadSignedUrl } from '@/utils/s3';
+import { deleteS3Objects, getDownloadSignedUrl, getS3Object, getUploadSignedUrl, updateACL } from '@/utils/s3';
 import { getNow, getRandomString } from '@/utils';
 import { IContact } from '@/types/contact.types';
 import { IAgentProfile } from '@/types/agentProfile.types';
@@ -1278,6 +1278,54 @@ export const renameFile = async (req: Request, res: Response) => {
     await filesCol.updateOne({ _id: file._id }, { $set: { name } });
 
     return res.json({ ...file, name });
+  } catch (error) {
+    console.log('renameFile error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const getPublicFileUrl = async (req: Request, res: Response) => {
+  try {
+    const agentProfile = req.agentProfile as IAgentProfile;
+
+    const { fileId } = req.params;
+    const { isShared = 'false' } = req.query;
+
+    const query: any = {
+      _id: new ObjectId(fileId),
+      orgId: agentProfile.orgId,
+    };
+
+    if (isShared === 'true') {
+      query.connections = {
+        $elemMatch: {
+          id: undefined,
+          type: 'shared',
+        },
+      };
+    } else {
+      query.connections = {
+        $elemMatch: {
+          id: agentProfile._id,
+          type: 'agent',
+        },
+      };
+    }
+
+    const file = await filesCol.findOne(query);
+    if (!file) {
+      return res.status(404).json({ msg: 'Not found file' });
+    }
+
+    if (file.publicUrl) {
+      return res.json(file);
+    }
+
+    const publicUrl = await updateACL(file.s3Key, 'public-read');
+
+    await filesCol.updateOne({ _id: file._id }, { $set: { publicUrl } });
+
+    return res.json({ ...file, publicUrl });
   } catch (error) {
     console.log('renameFile error ===>', error);
     return res.status(500).json({ msg: 'Server error' });

@@ -1,4 +1,11 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectsCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectsCommand,
+  PutObjectAclCommand,
+  type ObjectCannedACL,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import path from 'path';
 import crypto from 'crypto';
@@ -88,4 +95,18 @@ export const deleteS3Objects = async (keys: string[]) => {
   });
 
   await s3.send(command);
+};
+
+export const updateACL = async (Key: string, ACL: ObjectCannedACL) => {
+  await s3.send(
+    new PutObjectAclCommand({
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key,
+      ACL,
+    })
+  );
+
+  const publicUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${awsCredentials.region}.amazonaws.com/${Key}`;
+
+  return publicUrl;
 };

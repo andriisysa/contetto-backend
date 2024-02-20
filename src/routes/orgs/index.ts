@@ -72,6 +72,7 @@ import {
   downloadFileUrl,
   getFileShareLink,
   getFolder,
+  getPublicFileUrl,
   getUploadFileUrl,
   loadfile,
   moveFiles,
@@ -192,6 +193,7 @@ orgsRouter
   .post('/:id/files', validate(mediaScheme.storeFile), agentOrContact, folderAuth, storeFile)
   .post('/:id/files/:fileId/download-url', agentOrContact, downloadFileUrl)
   .get('/:id/files/:fileId/load', agentOrContact, loadfile)
+  .get('/:id/files/:fileId/public-url', orgRoleAuth(AgentRole.agent), getPublicFileUrl)
   .put('/:id/files/:fileId/rename', validate(mediaScheme.create), agentOrContact, renameFile)
   .post('/:id/files/:fileId/share', validate(mediaScheme.shareFile), orgRoleAuth(AgentRole.agent), shareFile)
   .post('/:id/files/:fileId/share/:contactId', orgRoleAuth(AgentRole.agent), shareForAgentOnlyFile)
