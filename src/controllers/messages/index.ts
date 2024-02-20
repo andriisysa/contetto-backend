@@ -245,7 +245,7 @@ export const loadSearchedessages = async (req: Request, res: Response) => {
           },
         },
         { $sort: { createdAt: -1 } },
-        { $limit: 20 },
+        // { $limit: 20 },
       ])
       .toArray();
 

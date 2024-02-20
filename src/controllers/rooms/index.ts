@@ -562,9 +562,9 @@ export const removeMemberFromRoom = async (req: Request, res: Response) => {
 
     const ap = await agentProfilesCol.findOne({
       orgId: agentProfile.orgId,
-      username: (agent as IRoomAgent).username,
+      username: (agent as IRoomAgent)?.username,
     });
-    const cp = await contactsCol.findOne({ _id: (contact as IRoomContact)._id, orgId: agentProfile.orgId });
+    const cp = await contactsCol.findOne({ _id: (contact as IRoomContact)?._id, orgId: agentProfile.orgId });
     if (!ap && !cp) {
       return res.status(400).json({ msg: 'Invalid request!' });
     }
@@ -636,7 +636,7 @@ export const removeMemberFromRoom = async (req: Request, res: Response) => {
 
     return res.json({ msg: 'success' });
   } catch (error) {
-    console.log('addMemberToChannel error ===>', error);
+    console.log('removeMemberFromRoom error ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
