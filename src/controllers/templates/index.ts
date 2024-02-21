@@ -52,15 +52,24 @@ export const addOrgTemplate = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'not found template' });
     }
 
+    const orgTemplate = await orgTemplatesCol.findOne({
+      orgId: owner.orgId,
+      templateId: template._id,
+      hidden: false,
+    });
+    if (orgTemplate) {
+      return res.json({ msg: 'You already added this template' });
+    }
+
     const data: WithoutId<IOrgTemplate> = {
       orgId: owner.orgId,
       templateId: template._id,
       hidden: false,
     };
 
-    const newOrgTemplate = await orgTemplatesCol.insertOne(data);
+    await orgTemplatesCol.insertOne(data);
 
-    return res.json({ ...data, template, _id: newOrgTemplate.insertedId });
+    return res.json({ msg: 'Added' });
   } catch (error) {
     console.log('addOrgTemplate ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -81,7 +90,7 @@ export const getOrgTemplates = async (req: Request, res: Response) => {
         { $match: query },
         {
           $lookup: {
-            from: 'orgTemplates',
+            from: 'templates',
             localField: 'templateId',
             foreignField: '_id',
             pipeline: [
@@ -132,7 +141,7 @@ export const getOrgTemplate = async (req: Request, res: Response) => {
         { $match: query },
         {
           $lookup: {
-            from: 'orgTemplates',
+            from: 'templates',
             localField: 'templateId',
             foreignField: '_id',
             pipeline: [
