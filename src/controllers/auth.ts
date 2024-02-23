@@ -11,9 +11,19 @@ import { sendEmail } from '@/utils/email';
 import { createOrg } from './orgs';
 import { IOrg } from '@/types/org.types';
 import { IIndustry } from '@/types/industry.types';
+import { IAgentProfile } from '@/types/agentProfile.types';
+import { IContact } from '@/types/contact.types';
+import { IRoom } from '@/types/room.types';
+import { IFile, IFolder } from '@/types/folder.types';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
+const orgsCol = db.collection<WithoutId<IOrg>>('orgs');
+const agentProfilesCol = db.collection<WithoutId<IAgentProfile>>('agentProfiles');
+const contactsCol = db.collection<WithoutId<IContact>>('contacts');
+const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
+const foldersCol = db.collection<WithoutId<IFolder>>('folders');
+const filesCol = db.collection<WithoutId<IFile>>('files');
 
 export const singup = async (req: Request, res: Response) => {
   try {
@@ -118,7 +128,7 @@ export const login = async (req: Request, res: Response) => {
     let { username, password } = req.body;
     username = String(username).toLowerCase().trim();
 
-    const user = await usersCol.findOne({ username, verified: true });
+    const user = await usersCol.findOne({ username, verified: true, deleted: false });
     if (!user) {
       return res.status(404).json({ msg: 'user not found' });
     }
@@ -233,5 +243,33 @@ export const resetPassword = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.log('resetPassword error ===>', error);
     return res.status(500).json({ msg: `Failed: ${error.message}` });
+  }
+};
+
+export const deleteAccount = async (req: Request, res: Response) => {
+  try {
+    const curUser = req.user as IUser;
+    let { password } = req.body;
+
+    const user = await usersCol.findOne({ username: curUser.username, verified: true });
+    if (!user) {
+      return res.status(404).json({ msg: 'user not found' });
+    }
+
+    if (user && (await compareHash(password, user.password))) {
+      // orgs
+      const orgs = await orgsCol.find({ owner: user.username, deleted: false }).toArray();
+      const agentProfile = await agentProfilesCol.find({ username: user.username }).toArray();
+      const contacts = await contactsCol.find({ username: user.username }).toArray();
+
+      await usersCol.updateOne({ username: user.username }, { $set: { deleted: true } });
+
+      return res.json({ msg: 'success' });
+    }
+
+    return res.status(400).json({ msg: 'Password incorrect' });
+  } catch (error) {
+    console.log('deleteAccount ===>', error);
+    return res.status(500).json({ msg: 'login failed' });
   }
 };
