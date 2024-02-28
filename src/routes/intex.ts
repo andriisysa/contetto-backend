@@ -8,6 +8,7 @@ import { getAllRooms } from '@/controllers/rooms';
 import adminRouter from './admin';
 import fileShareRouter from './fileshare';
 import { getIndustries } from '@/controllers/admin/industry';
+import { getPageBySlug, getPublicPages } from '@/controllers/pages';
 
 const router = express.Router();
 
@@ -15,6 +16,8 @@ router
   .get('/', (_, res) => res.status(200).send('Hello World!'))
   .get('/health', (_, res) => res.status(200).send('OK'))
 
+  .get('/pages', getPublicPages)
+  .get('/pages/:slug', getPageBySlug)
   .get('/rooms', auth, getAllRooms)
   .get('/industries', auth, getIndustries)
   .use('/auth', authRouter)

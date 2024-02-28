@@ -1,7 +1,7 @@
 import express from 'express';
 
 import validate from '@/middlewares/validation';
-import { channelScheme, contactSchema, mediaScheme, orgSchema, searchScheme } from '@/schema';
+import { channelScheme, contactSchema, mediaScheme, orgSchema, pageScheme, searchScheme } from '@/schema';
 import {
   acceptInvite,
   create,
@@ -102,6 +102,16 @@ import {
   updateBrochure,
   uploadBrochureImage,
 } from '@/controllers/templates/brochure';
+import {
+  createPage,
+  deletePage,
+  deletePageImage,
+  getMyPage,
+  getMyPages,
+  getPageImages,
+  updatePage,
+  uploadPageImage,
+} from '@/controllers/pages';
 
 const orgsRouter = express.Router();
 
@@ -217,6 +227,18 @@ orgsRouter
   // brochure images
   .post('/:id/brochure-images', orgRoleAuth(AgentRole.agent), uploadBrochureImage)
   .get('/:id/brochure-images', orgRoleAuth(AgentRole.agent), getBrochureImages)
-  .delete('/:id/brochure-images/:imageId', orgRoleAuth(AgentRole.agent), deleteBrochureImage);
+  .delete('/:id/brochure-images/:imageId', orgRoleAuth(AgentRole.agent), deleteBrochureImage)
+
+  // pages
+  .post('/:id/pages', validate(pageScheme.create), orgRoleAuth(AgentRole.agent), createPage)
+  .get('/:id/pages', orgRoleAuth(AgentRole.agent), getMyPages)
+  .get('/:id/pages/:pageId', orgRoleAuth(AgentRole.agent), getMyPage)
+  .put('/:id/pages/:pageId', validate(pageScheme.create), orgRoleAuth(AgentRole.agent), updatePage)
+  .delete('/:id/pages/:pageId', orgRoleAuth(AgentRole.agent), deletePage)
+
+  // page images
+  .post('/:id/page-images', orgRoleAuth(AgentRole.agent), uploadPageImage)
+  .get('/:id/page-images', orgRoleAuth(AgentRole.agent), getPageImages)
+  .delete('/:id/page-images/:imageId', orgRoleAuth(AgentRole.agent), deletePageImage);
 
 export default orgsRouter;

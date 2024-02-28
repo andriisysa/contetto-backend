@@ -78,3 +78,10 @@ export const templateLayoutScheme = {
     body('height').isNumeric().withMessage('Height is required!'),
   ],
 };
+
+export const pageScheme = {
+  create: [
+    body('title').isString().withMessage('Title is required!'),
+    body('html').isString().withMessage('Html content is required!'),
+  ],
+};
