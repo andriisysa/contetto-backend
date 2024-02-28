@@ -1327,7 +1327,8 @@ export const searchPropertiesByAddress = async (req: Request, res: Response) => 
           $options: 'i',
         },
       })
-      .limit(5);
+      .limit(5)
+      .toArray();
 
     return res.json(properties);
   } catch (error) {
