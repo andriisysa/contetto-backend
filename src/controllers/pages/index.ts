@@ -21,7 +21,8 @@ export const createPage = async (req: Request, res: Response) => {
 
     const { title, html, css, isPublished = false } = req.body;
 
-    const page = await pagesCol.findOne({ title });
+    const slug = slugify(String(title).toLowerCase());
+    const page = await pagesCol.findOne({ slug });
     if (page) {
       return res.status(400).json({ msg: 'The same title already exists' });
     }
@@ -30,7 +31,7 @@ export const createPage = async (req: Request, res: Response) => {
       orgId: agent.orgId,
       creator: agent.username,
       title,
-      slug: slugify(title),
+      slug,
       html,
       css,
       isPublished,
@@ -98,9 +99,10 @@ export const updatePage = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'not found page' });
     }
 
+    const slug = slugify(String(title).toLowerCase());
     const exists = await pagesCol.findOne({
       _id: { $ne: page._id },
-      title,
+      slug,
     });
     if (exists) {
       return res.status(400).json({ msg: 'The same title already exists' });
@@ -109,7 +111,7 @@ export const updatePage = async (req: Request, res: Response) => {
     const data: WithoutId<IPage> = {
       ...page,
       title,
-      slug: slugify(title),
+      slug,
       html,
       css,
       isPublished,
