@@ -9,12 +9,13 @@ const templateLayoutsCol = db.collection<WithoutId<ITemplateLayout>>('templateLa
 
 export const createTemplateLayout = async (req: Request, res: Response) => {
   try {
-    const { name, width, height } = req.body;
+    const { name, width, height, type } = req.body;
 
     const data: WithoutId<ITemplateLayout> = {
       name,
       width,
       height,
+      type,
     };
 
     const layout = await templateLayoutsCol.insertOne(data);
@@ -29,7 +30,7 @@ export const createTemplateLayout = async (req: Request, res: Response) => {
 export const updateTemplateLayout = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, width, height } = req.body;
+    const { name, width, height, type } = req.body;
 
     const layout = await templateLayoutsCol.findOne({ _id: new ObjectId(id) });
     if (!layout) {
@@ -40,6 +41,7 @@ export const updateTemplateLayout = async (req: Request, res: Response) => {
       name,
       width,
       height,
+      type,
     };
 
     await templateLayoutsCol.updateOne({ _id: layout._id }, { $set: data });
