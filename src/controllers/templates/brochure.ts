@@ -278,7 +278,7 @@ export const copySocialLink = async (req: Request, res: Response) => {
     }
 
     const { url, s3Key } = await uploadBase64ToS3(
-      'orgs/template-files',
+      'template-files',
       brochure.name,
       imageData,
       imageType,
@@ -329,7 +329,7 @@ export const copyBrochureLink = async (req: Request, res: Response) => {
     const blob = await convertSvgToPdfBlob(svg);
 
     const { url, s3Key } = await uploadFileToS3(
-      'orgs/template-files',
+      'template-files',
       'brochure.name',
       await blob.arrayBuffer(),
       'application/pdf',
