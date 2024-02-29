@@ -7,8 +7,9 @@ import { IAgentProfile } from '@/types/agentProfile.types';
 import { IBrochure } from '@/types/brochure.types';
 import { ITemplateImage, ITemplateLayout, TemplateType } from '@/types/template.types';
 import { getImageExtension } from '@/utils/extension';
-import { deleteS3Objects, uploadBase64ToS3 } from '@/utils/s3';
+import { deleteS3Objects, uploadBase64ToS3, uploadFileToS3 } from '@/utils/s3';
 import { getNow } from '@/utils';
+import { convertSvgToPdf, convertSvgToPdfBlob } from '@/utils/pdf';
 
 const brochuresCol = db.collection<WithoutId<IBrochure>>('brochures');
 const listingsCol = db.collection('mlsListings');
@@ -20,7 +21,11 @@ export const createBrochure = async (req: Request, res: Response) => {
   try {
     const agent = req.agentProfile as IAgentProfile;
 
-    const { propertyId, layoutId, data, type = TemplateType.social } = req.body;
+    const { name, propertyId, layoutId, data, type = TemplateType.social } = req.body;
+    if (!name || !data) {
+      return res.status(400).json({ msg: 'Invalid request' });
+    }
+
     const property = await listingsCol.findOne({ _id: new ObjectId(propertyId) });
     if (!property) {
       return res.status(404).json({ msg: 'not found property' });
@@ -33,6 +38,7 @@ export const createBrochure = async (req: Request, res: Response) => {
 
     const brochureData: WithoutId<IBrochure> = {
       orgId: agent.orgId,
+      name,
       creator: agent.username,
       propertyId: property._id,
       property,
@@ -41,6 +47,7 @@ export const createBrochure = async (req: Request, res: Response) => {
       type,
       createdAt: getNow(),
       data,
+      edited: true,
     };
 
     const newBrochure = await brochuresCol.insertOne(data);
@@ -92,7 +99,11 @@ export const updateBrochure = async (req: Request, res: Response) => {
   try {
     const agent = req.agentProfile as IAgentProfile;
     const { brochureId } = req.params;
-    const { data } = req.body;
+    const { name, data } = req.body;
+
+    if (!name || !data) {
+      return res.status(400).json({ msg: 'Invalid request' });
+    }
 
     const brochure = await brochuresCol.findOne({
       _id: new ObjectId(brochureId),
@@ -104,9 +115,15 @@ export const updateBrochure = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'not found brochure' });
     }
 
-    await brochuresCol.updateOne({ _id: brochure._id }, { $set: { data } });
+    const updateData: Partial<IBrochure> = {
+      name,
+      data,
+      edited: true,
+    };
 
-    return res.json({ ...brochure, data });
+    await brochuresCol.updateOne({ _id: brochure._id }, { $set: updateData });
+
+    return res.json({ ...brochure, ...updateData });
   } catch (error) {
     console.log('updateBrochure ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -208,6 +225,129 @@ export const deleteBrochureImage = async (req: Request, res: Response) => {
     return res.json({ msg: 'success' });
   } catch (error) {
     console.log('deleteBrochureImage ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const downloadPDFForBrochureTemplate = async (req: Request, res: Response) => {
+  try {
+    let { svg } = req.body;
+    if (!svg) {
+      return res.status(400).json({ msg: 'svg data required!' });
+    }
+
+    const doc = await convertSvgToPdf(svg);
+
+    res.setHeader('Content-Type', 'application/pdf');
+
+    doc.pipe(res);
+  } catch (error) {
+    console.log('downloadPDFForBrochureTemplate ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const copySocialLink = async (req: Request, res: Response) => {
+  try {
+    const agent = req.agentProfile as IAgentProfile;
+
+    const { brochureId } = req.params;
+
+    const brochure = await brochuresCol.findOne({
+      _id: new ObjectId(brochureId),
+      orgId: agent.orgId,
+      creator: agent.username,
+    });
+
+    if (!brochure) {
+      return res.status(404).json({ msg: 'not found brochure' });
+    }
+
+    if (!brochure.edited && brochure.publicLink) {
+      return res.json(brochure);
+    }
+
+    const { imageData, imageType } = req.body;
+    if (!imageData || !imageType) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
+
+    const imageExtension = getImageExtension(imageType);
+    if (!imageExtension) {
+      return res.status(400).json({ msg: 'Invalid image type' });
+    }
+
+    const { url, s3Key } = await uploadBase64ToS3(
+      'orgs/template-files',
+      brochure.name,
+      imageData,
+      imageType,
+      imageExtension
+    );
+
+    const updateData: Partial<IBrochure> = {
+      edited: false,
+      publicLink: url,
+      s3Key,
+      mimetype: 'image/png',
+    };
+
+    await brochuresCol.updateOne({ _id: brochure._id }, { $set: updateData });
+
+    return res.json({ ...brochure, ...updateData });
+  } catch (error) {
+    console.log('copySocialLink ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const copyBrochureLink = async (req: Request, res: Response) => {
+  try {
+    const agent = req.agentProfile as IAgentProfile;
+
+    const { brochureId } = req.params;
+
+    const brochure = await brochuresCol.findOne({
+      _id: new ObjectId(brochureId),
+      orgId: agent.orgId,
+      creator: agent.username,
+    });
+
+    if (!brochure) {
+      return res.status(404).json({ msg: 'not found brochure' });
+    }
+
+    if (!brochure.edited && brochure.publicLink) {
+      return res.json(brochure);
+    }
+
+    let { svg } = req.body;
+    if (!svg) {
+      return res.status(400).json({ msg: 'svg data required!' });
+    }
+
+    const blob = await convertSvgToPdfBlob(svg);
+
+    const { url, s3Key } = await uploadFileToS3(
+      'orgs/template-files',
+      'brochure.name',
+      await blob.arrayBuffer(),
+      'application/pdf',
+      'pdf'
+    );
+
+    const updateData: Partial<IBrochure> = {
+      edited: false,
+      publicLink: url,
+      s3Key,
+      mimetype: 'application/pdf',
+    };
+
+    await brochuresCol.updateOne({ _id: brochure._id }, { $set: updateData });
+
+    return res.json({ ...brochure, ...updateData });
+  } catch (error) {
+    console.log('copyBrochureLink ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
