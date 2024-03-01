@@ -9,7 +9,7 @@ import { ITemplateImage, ITemplateLayout, TemplateType } from '@/types/template.
 import { getImageExtension } from '@/utils/extension';
 import { deleteS3Objects, uploadBase64ToS3, uploadFileToS3 } from '@/utils/s3';
 import { getNow } from '@/utils';
-import { convertSvgToPdf, convertSvgToPdfBlob } from '@/utils/pdf';
+import { convertSvgToPdf, convertSvgToPdfBlob, convertSvgToPng } from '@/utils/svg';
 
 const brochuresCol = db.collection<WithoutId<IBrochure>>('brochures');
 const listingsCol = db.collection('mlsListings');
@@ -229,20 +229,68 @@ export const deleteBrochureImage = async (req: Request, res: Response) => {
   }
 };
 
-export const downloadPDFForBrochureTemplate = async (req: Request, res: Response) => {
+export const downloadPDFForBrochure = async (req: Request, res: Response) => {
   try {
-    let { svg } = req.body;
-    if (!svg) {
+    const agent = req.agentProfile as IAgentProfile;
+
+    const { brochureId } = req.params;
+
+    const brochure = await brochuresCol.findOne({
+      _id: new ObjectId(brochureId),
+      orgId: agent.orgId,
+      creator: agent.username,
+      type: TemplateType.brochure,
+    });
+
+    if (!brochure) {
+      return res.status(404).json({ msg: 'not found brochure' });
+    }
+
+    let { svgs = [] } = req.body;
+    if (svgs.length === 0) {
       return res.status(400).json({ msg: 'svg data required!' });
     }
 
-    const doc = await convertSvgToPdf(svg);
+    const doc = await convertSvgToPdf(svgs, brochure.layout);
 
     res.setHeader('Content-Type', 'application/pdf');
 
     doc.pipe(res);
   } catch (error) {
-    console.log('downloadPDFForBrochureTemplate ===>', error);
+    console.log('downloadPDFForBrochure ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const downloadPngForSocial = async (req: Request, res: Response) => {
+  try {
+    const agent = req.agentProfile as IAgentProfile;
+
+    const { brochureId } = req.params;
+
+    const social = await brochuresCol.findOne({
+      _id: new ObjectId(brochureId),
+      orgId: agent.orgId,
+      creator: agent.username,
+      type: TemplateType.social,
+    });
+
+    if (!social) {
+      return res.status(404).json({ msg: 'not found brochure' });
+    }
+
+    let { svg } = req.body;
+    if (!svg) {
+      return res.status(400).json({ msg: 'svg data required!' });
+    }
+
+    const png = await convertSvgToPng(svg, social.layout);
+
+    res.setHeader('Content-Type', 'image/png');
+
+    return res.send(png);
+  } catch (error) {
+    console.log('downloadPngForSocial ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
@@ -253,37 +301,29 @@ export const copySocialLink = async (req: Request, res: Response) => {
 
     const { brochureId } = req.params;
 
-    const brochure = await brochuresCol.findOne({
+    const social = await brochuresCol.findOne({
       _id: new ObjectId(brochureId),
       orgId: agent.orgId,
       creator: agent.username,
+      type: TemplateType.social,
     });
 
-    if (!brochure) {
+    if (!social) {
       return res.status(404).json({ msg: 'not found brochure' });
     }
 
-    if (!brochure.edited && brochure.publicLink) {
-      return res.json(brochure);
+    if (!social.edited && social.publicLink) {
+      return res.json(social);
     }
 
-    const { imageData, imageType } = req.body;
-    if (!imageData || !imageType) {
-      return res.status(400).json({ msg: 'Bad request' });
+    let { svg } = req.body;
+    if (!svg) {
+      return res.status(400).json({ msg: 'svg data required!' });
     }
 
-    const imageExtension = getImageExtension(imageType);
-    if (!imageExtension) {
-      return res.status(400).json({ msg: 'Invalid image type' });
-    }
+    const png = await convertSvgToPng(svg, social.layout);
 
-    const { url, s3Key } = await uploadBase64ToS3(
-      'template-files',
-      brochure.name,
-      imageData,
-      imageType,
-      imageExtension
-    );
+    const { url, s3Key } = await uploadFileToS3('template-files', social.name, png, 'image/png', 'png');
 
     const updateData: Partial<IBrochure> = {
       edited: false,
@@ -292,9 +332,9 @@ export const copySocialLink = async (req: Request, res: Response) => {
       mimetype: 'image/png',
     };
 
-    await brochuresCol.updateOne({ _id: brochure._id }, { $set: updateData });
+    await brochuresCol.updateOne({ _id: social._id }, { $set: updateData });
 
-    return res.json({ ...brochure, ...updateData });
+    return res.json({ ...social, ...updateData });
   } catch (error) {
     console.log('copySocialLink ===>', error);
     return res.status(500).json({ msg: 'Server error' });
@@ -311,6 +351,7 @@ export const copyBrochureLink = async (req: Request, res: Response) => {
       _id: new ObjectId(brochureId),
       orgId: agent.orgId,
       creator: agent.username,
+      type: TemplateType.brochure,
     });
 
     if (!brochure) {
@@ -321,16 +362,16 @@ export const copyBrochureLink = async (req: Request, res: Response) => {
       return res.json(brochure);
     }
 
-    let { svg } = req.body;
-    if (!svg) {
+    let { svgs = [] } = req.body;
+    if (svgs.length === 0) {
       return res.status(400).json({ msg: 'svg data required!' });
     }
 
-    const blob = await convertSvgToPdfBlob(svg);
+    const blob = await convertSvgToPdfBlob(svgs, brochure.layout);
 
     const { url, s3Key } = await uploadFileToS3(
       'template-files',
-      'brochure.name',
+      brochure.name,
       await blob.arrayBuffer(),
       'application/pdf',
       'pdf'

@@ -98,7 +98,8 @@ import {
   createBrochure,
   deleteBrochure,
   deleteBrochureImage,
-  downloadPDFForBrochureTemplate,
+  downloadPDFForBrochure,
+  downloadPngForSocial,
   getBrochure,
   getBrochureImages,
   getBrochures,
@@ -226,7 +227,8 @@ orgsRouter
   .get('/:id/brochures/:brochureId', orgRoleAuth(AgentRole.agent), getBrochure)
   .put('/:id/brochures/:brochureId', orgRoleAuth(AgentRole.agent), updateBrochure)
   .delete('/:id/brochures/:brochureId', orgRoleAuth(AgentRole.agent), deleteBrochure)
-  .post('/:id/brochures/download-brochure-pdf', orgRoleAuth(AgentRole.agent), downloadPDFForBrochureTemplate)
+  .post('/:id/brochures/:brochureId/download-brochure-pdf', orgRoleAuth(AgentRole.agent), downloadPDFForBrochure)
+  .post('/:id/brochures/:brochureId/download-social-png', orgRoleAuth(AgentRole.agent), downloadPngForSocial)
   .post('/:id/brochures/:brochureId/copy-social-link', orgRoleAuth(AgentRole.agent), copySocialLink)
   .post('/:id/brochures/:brochureId/copy-brochure-link', orgRoleAuth(AgentRole.agent), copyBrochureLink)
 
