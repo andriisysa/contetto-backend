@@ -7,7 +7,7 @@ export const sendEmail = async (
   subject: string,
   textBody?: string,
   htmlBody?: string,
-  from: string = 'dropbox@softcorp.ca'
+  from: string = 'no-reply@contetto.com'
 ) => {
   const response = await client.sendEmail({
     From: from,
