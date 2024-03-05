@@ -6,12 +6,14 @@ import {
   acceptInvite,
   create,
   deleteOne,
+  getInviteAgentLink,
   getMyOrgs,
   getOne,
   getOrgMembers,
   inviteAgent,
   leaveOrg,
   removeMember,
+  resendInviteAgent,
   setBrand,
   setWhiteLabel,
   update,
@@ -133,6 +135,8 @@ orgsRouter
   // agents
   .get('/:id/members', orgRoleAuth(AgentRole.agent), getOrgMembers)
   .post('/:id/invite-agent', validate(orgSchema.inviteAgent), orgRoleAuth(AgentRole.admin), inviteAgent)
+  .post('/:id/invite-agent/:inviteId/resend', orgRoleAuth(AgentRole.admin), resendInviteAgent)
+  .get('/:id/invite-agent/:inviteId/get-link', orgRoleAuth(AgentRole.admin), getInviteAgentLink)
   .post('/:id/invite-accept', validate(orgSchema.acceptInvite), acceptInvite)
   .post('/:id/remove-member', validate(orgSchema.removeMember), orgRoleAuth(AgentRole.admin), removeMember)
   .post('/:id/leave', orgRoleAuth(AgentRole.agent), leaveOrg)

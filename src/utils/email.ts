@@ -17,7 +17,7 @@ export const sendEmail = async (
     HtmlBody: htmlBody,
   });
 
-  console.log('message sent');
+  console.log('email sent ===>', response);
 
   return response;
 };

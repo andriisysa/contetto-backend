@@ -25,6 +25,8 @@ const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
 const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
 const usersCol = db.collection<WithoutId<IUser>>('users');
 
+const AGENT_INVITATION_EXPIARY_HOURS = 24 * 3600; // seconds
+
 export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
   const newOrg = await orgsCol.insertOne(orgData);
   const newAgent = await agentProfilesCol.insertOne({
@@ -169,7 +171,7 @@ export const inviteAgent = async (req: Request, res: Response) => {
       email,
       orgId: agentProfile.orgId,
       used: false,
-      createdAt: { $gte: getNow() - 2 * 3600 }, // check expiry time
+      createdAt: { $gte: getNow() - AGENT_INVITATION_EXPIARY_HOURS }, // check expiry time
     });
 
     const code = getRandomString(10);
@@ -181,7 +183,7 @@ export const inviteAgent = async (req: Request, res: Response) => {
       `
         <p>You are invited to ${agentProfile.org?.name} by ${user.username}. Here's the
         <a href="${process.env.WEB_URL}/invitations/${agentProfile.orgId}?code=${code}" target="_blank">link</a>
-        It will be expired in 2 hours.
+        It will be expired in 24 hours.
         </p>
       `
     );
@@ -209,6 +211,69 @@ export const inviteAgent = async (req: Request, res: Response) => {
   }
 };
 
+export const resendInviteAgent = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+    const agentProfile = req.agentProfile as IAgentProfile;
+
+    const { inviteId } = req.params;
+
+    const invite = await invitesCol.findOne({
+      _id: new ObjectId(inviteId),
+      orgId: agentProfile.orgId,
+      used: false,
+      createdAt: { $gte: getNow() - AGENT_INVITATION_EXPIARY_HOURS }, // check expiry time
+    });
+
+    if (!invite) {
+      return res.status(404).json({ msg: 'Not found invitation' });
+    }
+
+    await invitesCol.updateOne({ _id: invite._id }, { $set: { createdAt: getNow() } });
+
+    await sendEmail(
+      invite.email,
+      'Confirm email',
+      undefined,
+      `
+        <p>You are invited to ${agentProfile.org?.name} by ${user.username}. Here's the
+        <a href="${process.env.WEB_URL}/invitations/${agentProfile.orgId}?code=${invite.code}" target="_blank">link</a>
+        It will be expired in 24 hours.
+        </p>
+      `
+    );
+
+    return res.json({ msg: 'sent invitation' });
+  } catch (error) {
+    console.log('resendInviteAgent ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const getInviteAgentLink = async (req: Request, res: Response) => {
+  try {
+    const agentProfile = req.agentProfile as IAgentProfile;
+
+    const { inviteId } = req.params;
+
+    const invite = await invitesCol.findOne({
+      _id: new ObjectId(inviteId),
+      orgId: agentProfile.orgId,
+      used: false,
+      createdAt: { $gte: getNow() - AGENT_INVITATION_EXPIARY_HOURS }, // check expiry time
+    });
+
+    if (!invite) {
+      return res.status(404).json({ msg: 'Not found invitation' });
+    }
+
+    return res.json({ link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}?code=${invite.code}` });
+  } catch (error) {
+    console.log('resendInviteAgent ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
 export const acceptInvite = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
@@ -224,7 +289,7 @@ export const acceptInvite = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'Invite code invalid' });
     }
 
-    if (invite.createdAt + 2 * 3600 < getNow()) {
+    if (invite.createdAt + AGENT_INVITATION_EXPIARY_HOURS < getNow()) {
       return res.status(400).json({ msg: 'Invite code expired' });
     }
 
@@ -388,7 +453,7 @@ export const getOrgMembers = async (req: Request, res: Response) => {
       .find({
         orgId: new ObjectId(orgId),
         used: false,
-        createdAt: { $gte: getNow() - 2 * 3600 }, // check expiry time
+        createdAt: { $gte: getNow() - AGENT_INVITATION_EXPIARY_HOURS }, // check expiry time
       })
       .toArray();
 
