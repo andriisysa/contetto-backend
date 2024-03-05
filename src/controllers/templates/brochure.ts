@@ -50,7 +50,7 @@ export const createBrochure = async (req: Request, res: Response) => {
       edited: true,
     };
 
-    const newBrochure = await brochuresCol.insertOne(data);
+    const newBrochure = await brochuresCol.insertOne(brochureData);
 
     return res.json({ ...brochureData, _id: newBrochure.insertedId });
   } catch (error) {
