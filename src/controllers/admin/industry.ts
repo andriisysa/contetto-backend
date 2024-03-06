@@ -9,7 +9,7 @@ const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
 
 export const createIndustry = async (req: Request, res: Response) => {
   try {
-    const { name } = req.body;
+    const { name, type } = req.body;
 
     if (!name) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -17,6 +17,7 @@ export const createIndustry = async (req: Request, res: Response) => {
 
     const data: WithoutId<IIndustry> = {
       name,
+      type,
     };
 
     const newIndustry = await industriesCol.insertOne(data);
@@ -31,7 +32,7 @@ export const createIndustry = async (req: Request, res: Response) => {
 export const updateIndustry = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, type } = req.body;
 
     if (!name) {
       return res.status(400).json({ msg: 'Bad request' });
@@ -42,9 +43,9 @@ export const updateIndustry = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'Not found industry' });
     }
 
-    await industriesCol.updateOne({ _id: industry._id }, { $set: { name } });
+    await industriesCol.updateOne({ _id: industry._id }, { $set: { name, type } });
 
-    return res.json({ ...industry, name });
+    return res.json({ ...industry, name, type });
   } catch (error) {
     console.log('admin updateIndustry ===>', error);
     return res.status(500).json({ msg: 'Server error' });

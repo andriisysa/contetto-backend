@@ -55,6 +55,7 @@ export const agentOrContact = async (req: Request, res: Response, next: NextFunc
       return res.status(400).json({ msg: 'permissin denied' });
     }
 
+    req.org = org;
     req.agentProfile = agentProfile;
     req.contact = contact;
 

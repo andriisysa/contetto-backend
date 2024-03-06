@@ -17,6 +17,8 @@ import { io } from '@/socketServer';
 import { sendEmail } from '@/utils/email';
 import { sharePropertyTemplate } from '@/utils/email-templates';
 import { sendPush } from '@/utils/onesignal';
+import { IOrg } from '@/types/org.types';
+import { IIndustry, IndustryType } from '@/types/industry.types';
 
 dotenv.config();
 
@@ -27,6 +29,7 @@ const contactsCol = db.collection<WithoutId<IContact>>('contacts');
 const citiesCol = db.collection<WithoutId<ICity>>('cities');
 const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
 const messagesCol = db.collection<WithoutId<IMessage>>('messages');
+const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
 
 const SERACH_LIMIT = 12;
 const MAX_RANGE = 100;
@@ -55,6 +58,13 @@ export const searchListings = async (req: Request, res: Response) => {
     const user = req.user as IUser;
     const agentProfile = req.agentProfile;
     const contact = req.contact;
+
+    // check industry
+    const org = req.org as IOrg;
+    const industry = await industriesCol.findOne({ _id: org.industryId });
+    if (!industry || industry.type !== IndustryType.realEstate) {
+      return res.status(400).json({ msg: 'Bad request' });
+    }
 
     const {
       search: userQuery = '',

@@ -11,7 +11,7 @@ export interface IMLSFeed {
   api_secret: string;
 }
 
-export interface DefaultAvaOrgTheme {
+export interface DefaultOrgTheme {
   title: string;
   primary: string;
   secondary: string;
@@ -39,5 +39,5 @@ export interface IOrg {
   deletedAt?: number;
   createdAt: number;
   brand?: IOrgBrand;
-  whiteLabel?: DefaultAvaOrgTheme;
+  whiteLabel?: DefaultOrgTheme;
 }

@@ -5,7 +5,7 @@ import { db } from '@/database';
 
 import { getNow, getRandomString } from '@/utils';
 import { sendEmail } from '@/utils/email';
-import { DefaultAvaOrgTheme, IOrg, IOrgBrand } from '@/types/org.types';
+import { DefaultOrgTheme, IOrg, IOrgBrand } from '@/types/org.types';
 import { IUser } from '@/types/user.types';
 import { AgentRole, IAgentProfile, roleOrder } from '@/types/agentProfile.types';
 import { IInvite } from '@/types/invite.types';
@@ -390,6 +390,21 @@ export const getMyOrgs = async (req: Request, res: Response) => {
             from: 'orgs',
             localField: 'orgId',
             foreignField: '_id',
+            pipeline: [
+              {
+                $lookup: {
+                  from: 'industries',
+                  localField: 'industryId',
+                  foreignField: '_id',
+                  as: 'industry',
+                },
+              },
+              {
+                $unwind: {
+                  path: '$industry',
+                },
+              },
+            ],
             as: 'org',
           },
         },
@@ -413,6 +428,21 @@ export const getMyOrgs = async (req: Request, res: Response) => {
             from: 'orgs',
             localField: 'orgId',
             foreignField: '_id',
+            pipeline: [
+              {
+                $lookup: {
+                  from: 'industries',
+                  localField: 'industryId',
+                  foreignField: '_id',
+                  as: 'industry',
+                },
+              },
+              {
+                $unwind: {
+                  path: '$industry',
+                },
+              },
+            ],
             as: 'org',
           },
         },
@@ -563,7 +593,7 @@ export const setWhiteLabel = async (req: Request, res: Response) => {
 
     const { title, primary, secondary, background, fontFamily, description } = req.body;
 
-    const whiteLabel: DefaultAvaOrgTheme = {
+    const whiteLabel: DefaultOrgTheme = {
       title,
       primary,
       secondary,
