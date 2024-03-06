@@ -1,15 +1,22 @@
 import PDFDcoument from 'pdfkit';
 import SVGtoPDF from 'svg-to-pdfkit';
 import blobStream from 'blob-stream';
-import svg2png from 'svg2png';
+// import svg2png from 'svg2png';
+import { Resvg } from '@resvg/resvg-js';
 import { ITemplateLayout } from '@/types/template.types';
 
-const fetchImage = async (link: string) => {
+const fetchImageAsBase64 = async (link: string) => {
   const response = await fetch(link);
   const buffer = await response.arrayBuffer();
   const base64Image = Buffer.from(buffer).toString('base64');
 
   return `data:image/png;base64,${base64Image}`;
+};
+
+const fetchImageAsBuffer = async (link: string) => {
+  const response = await fetch(link);
+  const buffer = await response.arrayBuffer();
+  return Buffer.from(buffer);
 };
 
 export const convertSvgToPdf = async (svgs: string[], layout: ITemplateLayout) => {
@@ -25,7 +32,7 @@ export const convertSvgToPdf = async (svgs: string[], layout: ITemplateLayout) =
     const imagePromises = (imageLinks || []).map(async (link: string) => {
       const matches = link.match(/xlink:href="([^"]*)"/);
       const imageUrl = matches ? matches[1] : '';
-      const imageData = await fetchImage(imageUrl);
+      const imageData = await fetchImageAsBase64(imageUrl);
       svg = svg.replace(imageUrl, imageData);
     });
 
@@ -59,11 +66,24 @@ export const convertSvgToPdfBlob = async (svgs: string[], layout: ITemplateLayou
   });
 };
 
-export const convertSvgToPng = async (svg: Buffer, layout: ITemplateLayout) => {
-  const png = await svg2png(svg, {
-    width: layout.width,
-    height: layout.height,
-  });
+export const convertSvgToPng = async (svg: Buffer, layout: ITemplateLayout): Promise<Buffer> => {
+  // const png = await svg2png(svg, {
+  //   width: layout.width,
+  //   height: layout.height,
+  // });
 
-  return png;
+  const resvg = new Resvg(svg, {
+    fitTo: {
+      mode: 'width',
+      value: 640,
+    },
+  });
+  const hrefs = resvg.imagesToResolve();
+  for (const href of hrefs) {
+    resvg.resolveImage(href, await fetchImageAsBuffer(href));
+  }
+  const pngData = resvg.render();
+  const pngBuffer = pngData.asPng();
+
+  return pngBuffer;
 };
