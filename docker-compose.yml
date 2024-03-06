@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  contetto-backend:
+    build:
+      context: .
+      dockerfile: DockerfileDev
+    container_name: contetto-backend
+    ports:
+      - "3010:3010"
+    network_mode: host
+    volumes:
+      - ./:/app
+      - /app/node_modules

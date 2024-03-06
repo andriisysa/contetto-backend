@@ -1,7 +1,6 @@
 import PDFDcoument from 'pdfkit';
 import SVGtoPDF from 'svg-to-pdfkit';
 import blobStream from 'blob-stream';
-// import svg2png from 'svg2png';
 import { Resvg } from '@resvg/resvg-js';
 import { ITemplateLayout } from '@/types/template.types';
 
@@ -67,12 +66,11 @@ export const convertSvgToPdfBlob = async (svgs: string[], layout: ITemplateLayou
 };
 
 export const convertSvgToPng = async (svg: Buffer, layout: ITemplateLayout): Promise<Buffer> => {
-  // const png = await svg2png(svg, {
-  //   width: layout.width,
-  //   height: layout.height,
-  // });
-
   const resvg = new Resvg(svg, {
+    // font: {
+    //   loadSystemFonts: false,
+    //   fontDirs: ['../fonts/roboto']
+    // },
     fitTo: {
       mode: 'width',
       value: layout.width,
