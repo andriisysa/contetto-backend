@@ -75,7 +75,7 @@ export const convertSvgToPng = async (svg: Buffer, layout: ITemplateLayout): Pro
   const resvg = new Resvg(svg, {
     fitTo: {
       mode: 'width',
-      value: 640,
+      value: layout.width,
     },
   });
   const hrefs = resvg.imagesToResolve();
