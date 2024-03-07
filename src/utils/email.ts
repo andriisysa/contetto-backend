@@ -10,7 +10,7 @@ export const sendEmail = async (
   from: string = 'no-reply@contetto.com'
 ) => {
   const response = await client.sendEmail({
-    From: from,
+    From: `Contetto <${from}>`,
     To: to,
     Subject: subject,
     TextBody: textBody,
