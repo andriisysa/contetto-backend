@@ -21,6 +21,10 @@ export const authSchema = {
     body('verificationCode').isString().withMessage('Enter the verification code'),
     body('password').isString().withMessage('Enter the password'),
   ],
+  resetPassword: [
+    body('oldPassword').isString().withMessage('Old password is required'),
+    body('newPassword').isString().withMessage('New password is required'),
+  ],
 };
 
 export const orgSchema = {

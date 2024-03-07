@@ -4,6 +4,7 @@ import {
   deleteAccount,
   forgotPassword,
   forgotPasswordConfirm,
+  forgotUsername,
   getMe,
   login,
   resetPassword,
@@ -24,7 +25,8 @@ authRouter
   .get('/me', auth, getMe)
   .post('/forgot-password', validate(authSchema.forgotPassword), forgotPassword)
   .post('/forgot-password-confirm', validate(authSchema.forgotPasswordConfirm), forgotPasswordConfirm)
-  .post('/reset-password', auth, resetPassword)
+  .post('/reset-password', validate(authSchema.resetPassword), auth, resetPassword)
+  .post('/forgot-username', validate(authSchema.forgotPassword), forgotUsername)
   .delete('/delete', auth, deleteAccount);
 
 export default authRouter;

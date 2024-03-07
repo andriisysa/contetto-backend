@@ -225,6 +225,25 @@ export const forgotPasswordConfirm = async (req: Request, res: Response) => {
   }
 };
 
+export const forgotUsername = async (req: Request, res: Response) => {
+  try {
+    let { email } = req.body;
+    email = String(email).trim();
+
+    const user = await usersCol.findOne({ 'emails.email': email });
+    if (!user) {
+      return res.status(404).json({ msg: 'User doesn not exist' });
+    }
+
+    await sendEmail(email, 'Your Username', `Your Username is ${user.username}.`);
+
+    return res.json({ msg: 'Sent username via email' });
+  } catch (error: any) {
+    console.log('forgot password error ===>', error);
+    return res.status(500).json({ msg: `Failed: ${error.message}` });
+  }
+};
+
 export const resetPassword = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
