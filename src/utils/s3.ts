@@ -5,12 +5,12 @@ import {
   DeleteObjectsCommand,
   PutObjectAclCommand,
   type ObjectCannedACL,
+  CopyObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import path from 'path';
 import crypto from 'crypto';
 import { awsCredentials } from './aws';
-import { Readable } from 'stream';
 
 export const s3 = new S3Client(awsCredentials);
 
@@ -139,4 +139,31 @@ export const updateACL = async (Key: string, ACL: ObjectCannedACL) => {
   const publicUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${awsCredentials.region}.amazonaws.com/${Key}`;
 
   return publicUrl;
+};
+
+export const copyS3Object = async (
+  sourceKey: string,
+  folder: string,
+  name: string,
+  fileExt: string,
+  acl: boolean = true
+) => {
+  const hash = crypto.createHash('md5').update(new Date().toISOString()).digest('hex');
+  const Key = `${folder}/${name.toLowerCase()}_${hash}.${fileExt}`;
+
+  await s3.send(
+    new CopyObjectCommand({
+      CopySource: sourceKey,
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key,
+      ACL: acl ? 'public-read' : 'private',
+    })
+  );
+
+  const url = `https://${process.env.AWS_BUCKET_NAME}.s3.${awsCredentials.region}.amazonaws.com/${Key}`;
+
+  return {
+    url,
+    s3Key: Key,
+  };
 };

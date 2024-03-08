@@ -105,6 +105,8 @@ import {
   getBrochure,
   getBrochureImages,
   getBrochures,
+  shareBrochureInChat,
+  shareSocialInChat,
   updateBrochure,
   uploadBrochureImage,
 } from '@/controllers/templates/brochure';
@@ -235,6 +237,8 @@ orgsRouter
   .post('/:id/brochures/:brochureId/download-social-png', orgRoleAuth(AgentRole.agent), downloadPngForSocial)
   .post('/:id/brochures/:brochureId/copy-social-link', orgRoleAuth(AgentRole.agent), copySocialLink)
   .post('/:id/brochures/:brochureId/copy-brochure-link', orgRoleAuth(AgentRole.agent), copyBrochureLink)
+  .post('/:id/brochures/:brochureId/share-social-in-chat', orgRoleAuth(AgentRole.agent), shareSocialInChat)
+  .post('/:id/brochures/:brochureId/share-brochure-in-chat', orgRoleAuth(AgentRole.agent), shareBrochureInChat)
 
   // brochure images
   .post('/:id/brochure-images', orgRoleAuth(AgentRole.agent), uploadBrochureImage)

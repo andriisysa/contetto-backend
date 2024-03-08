@@ -7,14 +7,25 @@ import { IAgentProfile } from '@/types/agentProfile.types';
 import { IBrochure } from '@/types/brochure.types';
 import { ITemplateImage, ITemplateLayout, TemplateType } from '@/types/template.types';
 import { getImageExtension } from '@/utils/extension';
-import { deleteS3Objects, uploadBase64ToS3, uploadFileToS3 } from '@/utils/s3';
+import { copyS3Object, deleteS3Objects, uploadBase64ToS3, uploadFileToS3 } from '@/utils/s3';
 import { getNow } from '@/utils';
 import { convertSvgToPdf, convertSvgToPdfBlob, convertSvgToPng } from '@/utils/svg';
+import { IRoom, RoomType } from '@/types/room.types';
+import { IMessage, IMsgAttachment, ServerMessageType } from '@/types/message.types';
+import { IContact } from '@/types/contact.types';
+import { IUser } from '@/types/user.types';
+import { io } from '@/socketServer';
+import { sendPush } from '@/utils/onesignal';
 
+const usersCol = db.collection<WithoutId<IUser>>('users');
 const brochuresCol = db.collection<WithoutId<IBrochure>>('brochures');
 const listingsCol = db.collection('mlsListings');
 const templateLayoutsCol = db.collection<WithoutId<ITemplateLayout>>('templateLayouts');
 const templateImagesCol = db.collection<WithoutId<ITemplateImage>>('templateImages');
+const contactsCol = db.collection<WithoutId<IContact>>('contacts');
+const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
+const messagesCol = db.collection<WithoutId<IMessage>>('messages');
+const msgAttachmentsCol = db.collection<WithoutId<IMsgAttachment>>('msgAttachments');
 
 // brochures
 export const createBrochure = async (req: Request, res: Response) => {
@@ -389,6 +400,295 @@ export const copyBrochureLink = async (req: Request, res: Response) => {
     return res.json({ ...brochure, ...updateData });
   } catch (error) {
     console.log('copyBrochureLink ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+const sendMessage = async (
+  agent: IAgentProfile,
+  room: IRoom,
+  brochure: IBrochure,
+  contactId?: string,
+  msg?: string
+) => {
+  const { url, s3Key } = await copyS3Object(
+    brochure.s3Key!,
+    'attachments',
+    brochure.name,
+    brochure.type === TemplateType.social ? 'png' : 'pdf'
+  );
+  const attachMentData: WithoutId<IMsgAttachment> = {
+    roomId: room._id,
+    name: brochure.name,
+    url,
+    s3Key,
+    mimetype: brochure.mimetype!,
+    size: 0,
+    timestamp: getNow(),
+    creator: agent.username,
+  };
+
+  const newAttachment = await msgAttachmentsCol.insertOne(attachMentData);
+
+  // create message
+  const msgData: WithoutId<IMessage> = {
+    orgId: agent.orgId,
+    roomId: room._id,
+    msg: msg || `${agent.username} shared a ${brochure.type} template file`,
+    senderName: agent.username,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    edited: false,
+    editable: !!msg,
+    mentions: [],
+    channels: [],
+    attachmentIds: [newAttachment.insertedId],
+  };
+  const newMsg = await messagesCol.insertOne(msgData);
+
+  // get all users
+  const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
+
+  // update room
+  const roomData: IRoom = {
+    ...room,
+    userStatus: {
+      ...room.userStatus,
+      ...room.usernames.reduce((obj, un) => {
+        const socketIds = users.find((u) => u.username === un)?.socketIds;
+        return {
+          ...obj,
+          [un]: {
+            online: socketIds ? socketIds.length > 0 : false,
+            notis: un !== agent.username ? room.userStatus[un].notis + 1 : room.userStatus[un].notis,
+            unRead: true,
+            firstNotiMessage:
+              un !== agent.username
+                ? room.userStatus[un].firstNotiMessage || newMsg.insertedId
+                : room.userStatus[un].firstNotiMessage,
+            firstUnReadmessage: room.userStatus[un].firstUnReadmessage || newMsg.insertedId,
+          },
+        };
+      }, {}),
+    },
+  };
+
+  if (room.type === RoomType.dm && !room.dmInitiated) {
+    roomData.dmInitiated = true;
+  }
+
+  await roomsCol.updateOne({ _id: room._id }, { $set: roomData });
+
+  users.forEach((u) => {
+    u.socketIds?.forEach((socketId) => {
+      if (io) {
+        // update room
+        io.to(socketId).emit(ServerMessageType.channelUpdate, roomData);
+
+        // send message
+        io.to(socketId).emit(ServerMessageType.msgSend, {
+          ...msgData,
+          _id: newMsg.insertedId,
+          attachments: [{ ...attachMentData, _id: newAttachment.insertedId }],
+        });
+      }
+    });
+  });
+
+  // send notification
+  if (room.type === RoomType.dm && contactId) {
+    users
+      .filter((u) => u.username !== agent.username)
+      .forEach((u) => {
+        sendPush({
+          name: 'File is shared',
+          headings: 'File is shared',
+          contents: msg || `${agent.username} shared a ${brochure.type} template file`,
+          userId: u.username,
+          url: `${process.env.SCHEME_APP}:///?navigateTo=app/contact-orgs/${contactId}/rooms/${room._id}`,
+        });
+
+        // send desktop notification
+        u.socketIds?.forEach((socketId) => {
+          if (io) {
+            io.to(socketId).emit(ServerMessageType.electronNotification, {
+              title: `File is shared`,
+              body: msg || `${agent.username} shared a ${brochure.type} template file`,
+              url: `${process.env.WEB_URL}/app/contact-orgs/${contactId}/rooms/${room._id}`,
+            });
+          }
+        });
+      });
+  }
+};
+
+export const shareSocialInChat = async (req: Request, res: Response) => {
+  try {
+    const agent = req.agentProfile as IAgentProfile;
+
+    const { brochureId } = req.params;
+    let { contactId, channelId, msg } = req.body;
+
+    let room: IRoom | null = null;
+
+    if (contactId) {
+      const contact = await contactsCol.findOne({ _id: contactId, orgId: agent.orgId, agentProfileId: agent._id });
+      if (!contact) {
+        return res.status(404).json({ msg: 'Not found contact' });
+      }
+      room = await roomsCol.findOne({
+        orgId: agent.orgId,
+        usernames: {
+          $all: [agent.username, contact.username || contact._id.toString()],
+        },
+        type: RoomType.dm,
+        deleted: false,
+      });
+      if (!room) {
+        return res.status(404).json({ msg: 'Not found contact' });
+      }
+    } else if (channelId) {
+      room = await roomsCol.findOne({
+        _id: new ObjectId(channelId as string),
+        orgId: agent.orgId,
+        usernames: agent.username,
+        type: RoomType.channel,
+        deleted: false,
+      });
+      if (!room) {
+        return res.status(404).json({ msg: 'Not found channel' });
+      }
+    } else {
+      return res.status(400).json({ msg: 'Invalid request' });
+    }
+
+    const social = await brochuresCol.findOne({
+      _id: new ObjectId(brochureId),
+      orgId: agent.orgId,
+      creator: agent.username,
+      type: TemplateType.social,
+    });
+
+    if (!social) {
+      return res.status(404).json({ msg: 'not found brochure' });
+    }
+
+    if (!social.edited && social.publicLink) {
+      await sendMessage(agent, room, social, contactId, msg);
+    } else {
+      const { svg } = req.body;
+      if (!svg) {
+        return res.status(400).json({ msg: 'svg data required!' });
+      }
+
+      const png = await convertSvgToPng(svg, social.layout);
+
+      const { url, s3Key } = await uploadFileToS3('template-files', social.name, png, 'image/png', 'png');
+
+      const updateData: Partial<IBrochure> = {
+        edited: false,
+        publicLink: url,
+        s3Key,
+        mimetype: 'image/png',
+      };
+
+      await brochuresCol.updateOne({ _id: social._id }, { $set: updateData });
+
+      await sendMessage(agent, room, { ...social, ...updateData }, contactId, msg);
+    }
+
+    return res.json({ msg: 'Shared' });
+  } catch (error) {
+    console.log('shareSocialInChat ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const shareBrochureInChat = async (req: Request, res: Response) => {
+  try {
+    const agent = req.agentProfile as IAgentProfile;
+
+    const { brochureId } = req.params;
+
+    let { contactId, channelId, msg } = req.body;
+
+    let room: IRoom | null = null;
+
+    if (contactId) {
+      const contact = await contactsCol.findOne({ _id: contactId, orgId: agent.orgId, agentProfileId: agent._id });
+      if (!contact) {
+        return res.status(404).json({ msg: 'Not found contact' });
+      }
+      room = await roomsCol.findOne({
+        orgId: agent.orgId,
+        usernames: {
+          $all: [agent.username, contact.username || contact._id.toString()],
+        },
+        type: RoomType.dm,
+        deleted: false,
+      });
+      if (!room) {
+        return res.status(404).json({ msg: 'Not found contact' });
+      }
+    } else if (channelId) {
+      room = await roomsCol.findOne({
+        _id: new ObjectId(channelId as string),
+        orgId: agent.orgId,
+        usernames: agent.username,
+        type: RoomType.channel,
+        deleted: false,
+      });
+      if (!room) {
+        return res.status(404).json({ msg: 'Not found channel' });
+      }
+    } else {
+      return res.status(400).json({ msg: 'Invalid request' });
+    }
+
+    const brochure = await brochuresCol.findOne({
+      _id: new ObjectId(brochureId),
+      orgId: agent.orgId,
+      creator: agent.username,
+      type: TemplateType.brochure,
+    });
+
+    if (!brochure) {
+      return res.status(404).json({ msg: 'not found brochure' });
+    }
+
+    if (!brochure.edited && brochure.publicLink) {
+      await sendMessage(agent, room, brochure, contactId, msg);
+    } else {
+      let { svgs = [] } = req.body;
+      if (svgs.length === 0) {
+        return res.status(400).json({ msg: 'svg data required!' });
+      }
+
+      const blob = await convertSvgToPdfBlob(svgs, brochure.layout);
+
+      const { url, s3Key } = await uploadFileToS3(
+        'template-files',
+        brochure.name,
+        await blob.arrayBuffer(),
+        'application/pdf',
+        'pdf'
+      );
+
+      const updateData: Partial<IBrochure> = {
+        edited: false,
+        publicLink: url,
+        s3Key,
+        mimetype: 'application/pdf',
+      };
+
+      await brochuresCol.updateOne({ _id: brochure._id }, { $set: updateData });
+
+      await sendMessage(agent, room, { ...brochure, ...updateData }, contactId, msg);
+    }
+
+    return res.json({ msg: 'Shared' });
+  } catch (error) {
+    console.log('shareBrochureInChat ===>', error);
     return res.status(500).json({ msg: 'Server error' });
   }
 };
