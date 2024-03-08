@@ -9,6 +9,11 @@ export interface IMessageUserStatus {
   };
 }
 
+export enum MsgAttLinkedFromType {
+  brochure = 'brochure',
+  fileSystem = 'file-system',
+}
+
 export interface IMsgAttachment {
   _id: ObjectId;
   roomId: ObjectId;
@@ -19,6 +24,7 @@ export interface IMsgAttachment {
   size: number;
   timestamp: number;
   creator: string;
+  linkedFrom?: MsgAttLinkedFromType;
 }
 
 export interface IMessage {

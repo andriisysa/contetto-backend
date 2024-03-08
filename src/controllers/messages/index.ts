@@ -322,7 +322,9 @@ export const deleteAttachment = async (req: Request, res: Response) => {
       return res.status(404).json({ msg: 'Not found file' });
     }
 
-    await deleteS3Objects([msgAttachment.s3Key]);
+    if (!msgAttachment.linkedFrom) {
+      await deleteS3Objects([msgAttachment.s3Key]);
+    }
 
     await msgAttachmentsCol.deleteOne({ _id: msgAttachment._id });
 

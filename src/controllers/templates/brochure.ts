@@ -11,7 +11,7 @@ import { copyS3Object, deleteS3Objects, uploadBase64ToS3, uploadFileToS3 } from 
 import { getNow } from '@/utils';
 import { convertSvgToPdf, convertSvgToPdfBlob, convertSvgToPng } from '@/utils/svg';
 import { IRoom, RoomType } from '@/types/room.types';
-import { IMessage, IMsgAttachment, ServerMessageType } from '@/types/message.types';
+import { IMessage, IMsgAttachment, MsgAttLinkedFromType, ServerMessageType } from '@/types/message.types';
 import { IContact } from '@/types/contact.types';
 import { IUser } from '@/types/user.types';
 import { io } from '@/socketServer';
@@ -411,21 +411,16 @@ const sendMessage = async (
   contactId?: string,
   msg?: string
 ) => {
-  const { url, s3Key } = await copyS3Object(
-    brochure.s3Key!,
-    'attachments',
-    brochure.name,
-    brochure.type === TemplateType.social ? 'png' : 'pdf'
-  );
   const attachMentData: WithoutId<IMsgAttachment> = {
     roomId: room._id,
     name: brochure.name,
-    url,
-    s3Key,
+    url: brochure.publicLink!,
+    s3Key: brochure.s3Key!,
     mimetype: brochure.mimetype!,
     size: 0,
     timestamp: getNow(),
     creator: agent.username,
+    linkedFrom: MsgAttLinkedFromType.brochure,
   };
 
   const newAttachment = await msgAttachmentsCol.insertOne(attachMentData);

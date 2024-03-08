@@ -382,8 +382,10 @@ export const messageHandler = (io: Server, socket: Socket) => {
       }
 
       // delete attachment
+      if (!attachment.linkedFrom) {
+        await deleteS3Objects([attachment.s3Key]);
+      }
       await msgAttachmentsCol.deleteOne({ _id: attachment._id });
-      await deleteS3Objects([attachment.s3Key]);
 
       // get all users
       const users = await usersCol.find({ username: { $in: room.usernames } }).toArray();
