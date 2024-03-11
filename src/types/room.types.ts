@@ -48,4 +48,5 @@ export interface IRoom {
   createdAt: number; // unix timestamp
   updatedAt?: number; // unix timestamp
   deleted: boolean;
+  isDefault?: boolean;
 }

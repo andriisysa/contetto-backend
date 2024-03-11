@@ -40,6 +40,35 @@ export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
     createdAt: getNow(),
     updatedAt: getNow(),
   });
+
+  // create a public channel named "All Team"
+  await roomsCol.insertOne({
+    name: 'All Team',
+    orgId: newOrg.insertedId,
+    usernames: [user.username],
+    agents: [
+      {
+        _id: newAgent.insertedId,
+        username: user.username,
+      },
+    ],
+    contacts: [],
+    creator: user.username,
+    isPublic: true,
+    type: RoomType.channel,
+    deleted: false,
+    createdAt: getNow(),
+    userStatus: {
+      [user.username]: {
+        online: true,
+        notis: 0,
+        unRead: false,
+        firstUnReadmessage: undefined,
+        firstNotiMessage: undefined,
+      },
+    },
+    isDefault: true,
+  });
   return { newOrg, newAgent };
 };
 
