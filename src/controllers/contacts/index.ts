@@ -13,6 +13,7 @@ import { uploadBase64ToS3 } from '@/utils/s3';
 import { IRoom, RoomType } from '@/types/room.types';
 import { io } from '@/socketServer';
 import { ServerMessageType } from '@/types/message.types';
+import { sendEmail } from '@/utils/email';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 const contactsCol = db.collection<WithoutId<IContact>>('contacts');
@@ -305,6 +306,50 @@ export const shareContact = async (req: Request, res: Response) => {
     return res.json({
       link: `${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}?inviteCode=${inviteCode}&orgName=${agentProfile.org?.name}`,
     });
+  } catch (error) {
+    console.log('shareContact error ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+export const inviteContact = async (req: Request, res: Response) => {
+  try {
+    const agentProfile = req.agentProfile as IAgentProfile;
+    const { contactId } = req.params;
+
+    const contact = await contactsCol.findOne({
+      _id: new ObjectId(contactId),
+      agentProfileId: agentProfile._id,
+    });
+
+    if (!contact) {
+      return res.status(404).json({ msg: 'No contact found' });
+    }
+    if (contact.username) {
+      return res.status(400).json({ msg: `Contact is already binded to a user ${contact.username}` });
+    }
+    if (!contact.email) {
+      return res.status(400).json({ msg: `This contact doesn't have email` });
+    }
+
+    let inviteCode = contact.inviteCode;
+    if (!contact.inviteCode) {
+      inviteCode = getRandomString(10);
+      await contactsCol.updateOne({ _id: contact._id }, { $set: { inviteCode } });
+    }
+
+    await sendEmail(
+      contact.email,
+      `Invitation to ${agentProfile.org?.name}`,
+      undefined,
+      `
+        <p>You are invited to ${agentProfile.org?.name} by ${agentProfile.username}. Here's the
+        <a href="${process.env.WEB_URL}/invitations/${agentProfile.orgId}/contacts/${contactId}?inviteCode=${inviteCode}&orgName=${agentProfile.org?.name}" target="_blank">link</a>
+        </p>
+      `
+    );
+
+    return res.json({ msg: 'Email is sent' });
   } catch (error) {
     console.log('shareContact error ===>', error);
     return res.status(500).json({ msg: 'Server error' });

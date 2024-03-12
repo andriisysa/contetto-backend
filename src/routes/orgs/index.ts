@@ -29,6 +29,7 @@ import {
   deleteNote,
   getContact,
   getNotes,
+  inviteContact,
   myContacts,
   searchContacts,
   shareContact,
@@ -151,6 +152,7 @@ orgsRouter
   .put('/:id/contacts/:contactId', validate(contactSchema.create), orgRoleAuth(AgentRole.agent), updateContact)
   .delete('/:id/contacts/:contactId', orgRoleAuth(AgentRole.agent), deleteContact)
   .post('/:id/contacts/:contactId/share', orgRoleAuth(AgentRole.agent), shareContact)
+  .post('/:id/contacts/:contactId/invite', orgRoleAuth(AgentRole.agent), inviteContact)
   .post('/:id/contacts/:contactId/bind', validate(contactSchema.bind), bindContact)
 
   // contact notes

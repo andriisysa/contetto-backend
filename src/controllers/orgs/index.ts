@@ -207,7 +207,7 @@ export const inviteAgent = async (req: Request, res: Response) => {
 
     await sendEmail(
       email,
-      'Confirm email',
+      `Invitation to ${agentProfile.org?.name}`,
       undefined,
       `
         <p>You are invited to ${agentProfile.org?.name} by ${user.username}. Here's the
