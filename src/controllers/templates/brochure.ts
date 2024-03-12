@@ -37,11 +37,6 @@ export const createBrochure = async (req: Request, res: Response) => {
       return res.status(400).json({ msg: 'Invalid request' });
     }
 
-    const property = await listingsCol.findOne({ _id: new ObjectId(propertyId) });
-    if (!property) {
-      return res.status(404).json({ msg: 'not found property' });
-    }
-
     const layout = await templateLayoutsCol.findOne({ _id: new ObjectId(layoutId) });
     if (!layout) {
       return res.status(404).json({ msg: 'not found layout' });
@@ -51,8 +46,8 @@ export const createBrochure = async (req: Request, res: Response) => {
       orgId: agent.orgId,
       name,
       creator: agent.username,
-      propertyId: property._id,
-      property,
+      propertyId: undefined,
+      property: undefined,
       layoutId: layout._id,
       layout,
       type,
@@ -60,6 +55,15 @@ export const createBrochure = async (req: Request, res: Response) => {
       data,
       edited: true,
     };
+
+    if (propertyId) {
+      const property = await listingsCol.findOne({ _id: new ObjectId(String(propertyId)) });
+      if (!property) {
+        return res.status(404).json({ msg: 'not found property' });
+      }
+      brochureData.propertyId = property._id;
+      brochureData.property = property;
+    }
 
     const newBrochure = await brochuresCol.insertOne(brochureData);
 

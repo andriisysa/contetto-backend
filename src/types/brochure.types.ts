@@ -5,8 +5,8 @@ export interface IBrochure {
   _id: ObjectId;
   name: string;
   orgId: ObjectId;
-  propertyId: ObjectId;
-  property: any;
+  propertyId?: ObjectId;
+  property?: any;
   creator: string;
   data: any;
   layoutId: ObjectId;

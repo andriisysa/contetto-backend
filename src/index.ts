@@ -7,7 +7,6 @@ import helmet from 'helmet';
 import { client } from './database';
 import router from './routes/intex';
 import setupSocketServer, { clearConns } from './socketServer';
-import { delay } from './utils';
 
 dotenv.config();
 
