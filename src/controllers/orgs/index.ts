@@ -403,6 +403,42 @@ export const acceptInvite = async (req: Request, res: Response) => {
   }
 };
 
+export const getInvitations = async (req: Request, res: Response) => {
+  try {
+    const user = req.user as IUser;
+
+    const invitations = await invitesCol
+      .aggregate([
+        {
+          $match: {
+            email: { $in: user.emails.map((e) => e.email) },
+            createdAt: { $gte: getNow() - AGENT_INVITATION_EXPIARY_HOURS },
+            used: false,
+          },
+        },
+        {
+          $lookup: {
+            from: 'orgs',
+            localField: 'orgId',
+            foreignField: '_id',
+            as: 'org',
+          },
+        },
+        {
+          $unwind: {
+            path: '$org',
+          },
+        },
+      ])
+      .toArray();
+
+    return res.json(invitations);
+  } catch (error) {
+    console.log('org accept invite ===>', error);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+};
+
 export const getMyOrgs = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;

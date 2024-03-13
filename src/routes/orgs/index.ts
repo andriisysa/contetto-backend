@@ -6,6 +6,7 @@ import {
   acceptInvite,
   create,
   deleteOne,
+  getInvitations,
   getInviteAgentLink,
   getMyOrgs,
   getOne,
@@ -128,6 +129,7 @@ orgsRouter
   .post('', validate(orgSchema.create), create)
   .post('/', validate(orgSchema.create), create)
   .put('/:id', validate(orgSchema.create), orgRoleAuth(AgentRole.owner), update)
+  .get('/invitations', getInvitations)
   .get('/:id', orgRoleAuth(AgentRole.agent), getOne)
   .get('', getMyOrgs)
   .delete('/:id', orgRoleAuth(AgentRole.owner), deleteOne)

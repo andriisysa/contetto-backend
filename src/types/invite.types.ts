@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { AgentRole } from './agentProfile.types';
+import { IOrg } from './org.types';
 
 export interface IInvite {
   _id: ObjectId;
@@ -8,6 +9,7 @@ export interface IInvite {
   invitorId: ObjectId; // agent profileId
   invitor: string; // invite username
   orgId: ObjectId;
+  org?: IOrg;
   used: boolean;
   usedBy?: string; // invited username
   createdAt: number;
