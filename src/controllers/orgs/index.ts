@@ -32,6 +32,10 @@ export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
   const newAgent = await agentProfilesCol.insertOne({
     orgId: newOrg.insertedId,
     username: user.username,
+    userDisplayName: user.name,
+    userImage: user.image,
+    displayName: '',
+    image: '',
     email: String(user.emails.find((email) => email.primary)?.email),
     phone: '',
     description: `Owner of ${orgData.name}`,
@@ -50,6 +54,10 @@ export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
       {
         _id: newAgent.insertedId,
         username: user.username,
+        userImage: user.image,
+        userDisplayName: user.name,
+        displayName: '',
+        image: '',
       },
     ],
     contacts: [],
@@ -335,10 +343,14 @@ export const acceptInvite = async (req: Request, res: Response) => {
 
     const data: WithoutId<IAgentProfile> = {
       username: user.username,
+      userDisplayName: user.name,
+      userImage: user.image,
       orgId: org._id,
       email: user.emails[0].email,
       phone: '',
       description: '',
+      displayName: '',
+      image: '',
       invitor: invite.invitor,
       role: invite.role as AgentRole,
       deleted: false,
@@ -368,7 +380,17 @@ export const acceptInvite = async (req: Request, res: Response) => {
       const roomData: IRoom = {
         ...room,
         usernames,
-        agents: [...room.agents, { _id: newAgent.insertedId, username: user.username }],
+        agents: [
+          ...room.agents,
+          {
+            _id: newAgent.insertedId,
+            username: user.username,
+            userDisplayName: user.name,
+            userImage: user.image,
+            displayName: '',
+            image: '',
+          },
+        ],
         userStatus: {
           ...room.userStatus,
           [user.username]: {

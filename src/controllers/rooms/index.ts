@@ -34,7 +34,16 @@ export const createChannel = async (req: Request, res: Response) => {
       orgId: agentProfile.orgId,
       name,
       usernames: [user.username],
-      agents: [{ _id: agentProfile._id, username: user.username }],
+      agents: [
+        {
+          _id: agentProfile._id,
+          username: agentProfile.username,
+          userImage: agentProfile.userImage,
+          userDisplayName: agentProfile.userDisplayName,
+          displayName: agentProfile.displayName,
+          image: agentProfile.image,
+        },
+      ],
       contacts: [],
       creator: user.username,
       type: RoomType.channel,
@@ -58,7 +67,14 @@ export const createChannel = async (req: Request, res: Response) => {
       const users = await usersCol.find({ username: { $in: agents.map((a) => a.username) } }).toArray();
 
       data.usernames = agents.map((a) => a.username);
-      data.agents = agents.map((a) => ({ _id: a._id, username: a.username }));
+      data.agents = agents.map((a) => ({
+        _id: a._id,
+        username: a.username,
+        userImage: a.userImage,
+        userDisplayName: a.userDisplayName,
+        displayName: a.displayName,
+        image: a.image,
+      }));
       data.userStatus = users.reduce(
         (obj, u) => ({
           ...obj,
@@ -171,13 +187,22 @@ export const createDm = async (req: Request, res: Response) => {
         ...users.map((u) => u.username),
         ...contactProfiles.filter((cp) => !cp.username).map((cp) => cp._id.toString()),
       ],
-      agents: agentProfiles.map((ap) => ({ _id: ap._id, username: ap.username })),
+      agents: agentProfiles.map((ap) => ({
+        _id: ap._id,
+        username: ap.username,
+        userImage: ap.userImage,
+        userDisplayName: ap.userDisplayName,
+        displayName: ap.displayName,
+        image: ap.image,
+      })),
       contacts: contactProfiles.map((cp) => ({
         _id: cp._id,
         name: cp.name,
         agentId: cp.agentProfileId,
-        username: cp.username,
         agentName: cp.agentName,
+        image: cp.image,
+        username: cp.username,
+        userImage: cp.userImage,
       })),
       creator: user.username,
       type: RoomType.dm,
@@ -362,7 +387,17 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
     const roomData: IRoom = {
       ...room,
       usernames: [...newUsers, ...existingUsers].map((u) => u.username),
-      agents: [...room.agents, ...filteredAgents.map((ap) => ({ _id: ap._id, username: ap.username }))],
+      agents: [
+        ...room.agents,
+        ...filteredAgents.map((ap) => ({
+          _id: ap._id,
+          username: ap.username,
+          userImage: ap.userImage,
+          userDisplayName: ap.userDisplayName,
+          displayName: ap.displayName,
+          image: ap.image,
+        })),
+      ],
       contacts: [
         ...room.contacts,
         ...filteredContacts.map((cp) => ({
@@ -371,6 +406,8 @@ export const addMemberToChannel = async (req: Request, res: Response) => {
           username: cp.username!,
           agentId: cp.agentProfileId,
           agentName: cp.agentName,
+          userImage: cp.userImage,
+          image: cp.image,
         })),
       ],
       userStatus: {

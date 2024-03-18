@@ -20,10 +20,13 @@ export interface IAgentProfile {
   orgId: ObjectId; // orgId + username is unique key
   org?: IOrg;
   username: string;
+  userDisplayName?: string;
+  userImage?: string;
   user?: IUser;
   email: string;
   phone?: string;
   image?: string;
+  displayName?: string;
   description?: string;
   role: AgentRole;
   invitor?: string; // invitor username

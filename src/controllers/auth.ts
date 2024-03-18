@@ -15,6 +15,8 @@ import { IAgentProfile } from '@/types/agentProfile.types';
 import { IContact } from '@/types/contact.types';
 import { IRoom } from '@/types/room.types';
 import { IFile, IFolder } from '@/types/folder.types';
+import { getImageExtension } from '@/utils/extension';
+import { uploadBase64ToS3 } from '@/utils/s3';
 
 const usersCol = db.collection<WithoutId<IUser>>('users');
 const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
@@ -156,12 +158,64 @@ export const update = async (req: Request, res: Response) => {
   try {
     const user = req.user as IUser;
 
-    const { name } = req.body;
+    let { name, image = '', imageFileType } = req.body;
+    if (image && imageFileType) {
+      const imageExtension = getImageExtension(imageFileType);
+      if (!imageExtension) {
+        return res.status(400).json({ msg: 'Invalid image type' });
+      }
 
-    await usersCol.updateOne({ username: user.username }, { $set: { name } });
+      const { url } = await uploadBase64ToS3('orgs', String(name).split(' ')[0], image, imageFileType, imageExtension);
+      image = url;
+    }
 
-    if (await setResponseHeader(res, { ...user, name })) {
-      return res.json({ ...user, name });
+    const updateData: Partial<IUser> = {
+      name,
+      image,
+    };
+
+    await usersCol.updateOne({ username: user.username }, { $set: updateData });
+
+    await agentProfilesCol.updateMany(
+      { username: user.username },
+      {
+        $set: {
+          userDisplayName: name,
+          userImage: image,
+        },
+      }
+    );
+    await roomsCol.updateMany(
+      { 'agents.username': user.username },
+      {
+        $set: {
+          'agents.$.userDisplayName': name,
+          'agents.$.userImage': image,
+        },
+      }
+    );
+
+    await contactsCol.updateMany(
+      {
+        username: user.username,
+      },
+      {
+        $set: {
+          userImage: image,
+        },
+      }
+    );
+    await roomsCol.updateMany(
+      { 'contacts.username': user.username },
+      {
+        $set: {
+          'contacts.$.userImage': image,
+        },
+      }
+    );
+
+    if (await setResponseHeader(res, { ...user, ...updateData })) {
+      return res.json({ ...user, ...updateData });
     }
 
     return res.status(500).json({ msg: 'Server error' });

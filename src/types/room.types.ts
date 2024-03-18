@@ -21,12 +21,18 @@ export enum RoomType {
 export interface IRoomAgent {
   _id: ObjectId; // agentProfile id
   username: string;
+  userImage?: string;
+  userDisplayName?: string;
+  displayName?: string;
+  image?: string;
 }
 
 export interface IRoomContact {
   _id: ObjectId; // contactId
   name: string;
   username?: string;
+  userImage?: string;
+  image?: string;
   agentId: ObjectId;
   agentName: string;
 }

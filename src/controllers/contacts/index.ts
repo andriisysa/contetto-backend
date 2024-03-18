@@ -77,14 +77,19 @@ export const createContact = async (req: Request, res: Response) => {
         {
           _id: agentProfile._id,
           username: agentProfile.username,
+          userImage: agentProfile.userImage,
+          userDisplayName: agentProfile.userDisplayName,
+          displayName: agentProfile.displayName,
+          image: agentProfile.image,
         },
       ],
       contacts: [
         {
           _id: newContact.insertedId,
-          name: name,
+          name,
           agentId: agentProfile._id,
           agentName: agentProfile.username,
+          image,
         },
       ],
       creator: agentProfile.username,
@@ -234,6 +239,15 @@ export const updateContact = async (req: Request, res: Response) => {
     };
 
     await contactsCol.updateOne({ _id: contact._id }, { $set: data });
+    await roomsCol.updateMany(
+      { 'contacts._id': contact._id },
+      {
+        $set: {
+          'contacts.$.name': name,
+          'contacts.$.image': image,
+        },
+      }
+    );
 
     return res.json({ ...contact, data });
   } catch (error) {
@@ -397,12 +411,11 @@ export const bindContact = async (req: Request, res: Response) => {
           userImage: user.image,
           email: contact.email || user.emails[0].email,
           phone: contact.phone || (user.phones ? user.phones[0].phone : undefined),
-          image: contact.image || user.image,
         },
       }
     );
 
-    // update dm
+    // update rooms
     const rooms = await roomsCol.find({ 'contacts._id': contact._id }).toArray();
     for (const room of rooms) {
       // TODO: check duplicated rooms
@@ -416,6 +429,8 @@ export const bindContact = async (req: Request, res: Response) => {
             agentId: contact.agentProfileId,
             agentName: contact.agentName,
             username: user.username,
+            userImage: user.image,
+            image: contact.image,
           },
         ],
         userStatus: {
