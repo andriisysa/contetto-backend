@@ -25,7 +25,7 @@ const industriesCol = db.collection<WithoutId<IIndustry>>('industries');
 const roomsCol = db.collection<WithoutId<IRoom>>('rooms');
 const usersCol = db.collection<WithoutId<IUser>>('users');
 
-const AGENT_INVITATION_EXPIARY_HOURS = 24 * 3600; // seconds
+const AGENT_INVITATION_EXPIARY_HOURS = 7 * 24 * 3600; // seconds
 
 export const createOrg = async (user: IUser, orgData: WithoutId<IOrg>) => {
   const newOrg = await orgsCol.insertOne(orgData);
@@ -220,7 +220,7 @@ export const inviteAgent = async (req: Request, res: Response) => {
       `
         <p>You are invited to ${agentProfile.org?.name} by ${user.username}. Here's the
         <a href="${process.env.WEB_URL}/invitations/${agentProfile.orgId}?code=${code}" target="_blank">link</a>
-        It will be expired in 24 hours.
+        It will be expired in 1 week.
         </p>
       `
     );
@@ -275,7 +275,7 @@ export const resendInviteAgent = async (req: Request, res: Response) => {
       `
         <p>You are invited to ${agentProfile.org?.name} by ${user.username}. Here's the
         <a href="${process.env.WEB_URL}/invitations/${agentProfile.orgId}?code=${invite.code}" target="_blank">link</a>
-        It will be expired in 24 hours.
+        It will be expired in 1 week.
         </p>
       `
     );
