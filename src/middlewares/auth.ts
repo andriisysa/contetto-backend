@@ -1,6 +1,10 @@
 import type { Request, Response, NextFunction } from 'express';
 import { IUser } from '@/types/user.types';
 import { generateTokens, verifyToken } from '@/utils/jwt';
+import { db } from '@/database';
+import { WithoutId } from 'mongodb';
+
+const usersCol = db.collection<WithoutId<IUser>>('users');
 
 export const setResponseHeader = async (res: Response, user: IUser) => {
   const token = await generateTokens(user);
@@ -33,15 +37,21 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
   // getting user info from token
   let user = verifyToken(accessToken);
   if (!user) {
-    user = verifyToken(refreshToken);
-    if (!user) {
-      return res.status(401).json({ msg: 'Token expired' });
-    }
+    return res.status(401).json({ msg: 'Token expired' });
+    // user = verifyToken(refreshToken);
+    // if (!user) {
+    //   return res.status(401).json({ msg: 'Token expired' });
+    // }
 
-    // reset header
-    if (!(await setResponseHeader(res, user))) {
-      return res.status(500).json({ msg: 'Server error' });
-    }
+    // // reset header
+    // if (!(await setResponseHeader(res, user))) {
+    //   return res.status(500).json({ msg: 'Server error' });
+    // }
+  }
+
+  user = await usersCol.findOne({ username: user.username, deleted: false });
+  if (!user) {
+    return res.status(404).json({ msg: 'Not found user' });
   }
 
   req.user = user;
